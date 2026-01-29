@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bus-yellow: #facc15;
+  --color-road-grey: #1e293b;
+}
