@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Bus, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from "jwt-decode";
+import axios from 'axios';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,15 +47,35 @@ export default function Auth() {
               {isLogin ? "Access your real-time tracking dashboard." : "Sign up to start tracking your student's bus."}
             </p>
 
-            {/* GOOGLE SIGN IN BUTTON */}
-            <button className="w-full border-2 border-slate-100 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-200 transition-all mb-6 group">
-              <img 
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/smartlock/google.svg" 
-                alt="Google" 
-                className="w-5 h-5"
-              />
-              <span className="text-slate-700">Continue with Google</span>
-            </button>
+           <GoogleLogin
+  onSuccess={async (credentialResponse) => {
+    // 1. Decode the Google Token to get user details
+    const details = jwtDecode(credentialResponse.credential);
+    console.log("Google User:", details);
+
+    try {
+      // 2. Send details to your Backend
+      const res = await axios.post('http://localhost:5000/api/auth/google-login', {
+        name: details.name,
+        email: details.email,
+        googleId: details.sub, // 'sub' is the unique Google ID
+        photo: details.picture
+      });
+
+      if (res.data.success) {
+        localStorage.setItem('token', res.data.token); // Save our own JWT
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error("Login Failed", err);
+    }
+  }}
+  onError={() => {
+    console.log('Login Failed');
+  }}
+  useOneTap
+  shape="pill"
+/>
 
             {/* DIVIDER */}
             <div className="relative flex items-center mb-6">
