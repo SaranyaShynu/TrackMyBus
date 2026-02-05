@@ -1,54 +1,124 @@
 import React from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { LayoutDashboard, Users, ShieldAlert, BarChart3, Bus, Settings } from 'lucide-react';
+import { Bus, LayoutDashboard, Users, ShieldAlert, BarChart3, Settings, ClipboardCheck, History, Fuel } from 'lucide-react';
 
-const SchoolStep = ({ side, icon: Icon, title, desc }) => (
+const SchoolStep = ({ side, icon: Icon, title, time, desc, img }) => (
   <div className={`flex items-center justify-between w-full mb-32 ${side === 'left' ? 'flex-row-reverse' : ''}`}>
-    <div className="w-5/12" />
-    <div className="z-20 flex items-center justify-center w-14 h-14 bg-slate-900 rounded-2xl rotate-45 shadow-xl border-2 border-amber-400">
-      <Icon className="text-amber-400 -rotate-45" size={24} />
+    <div className="w-5/12" /> {/* Spacer */}
+    
+    {/* Step Icon Node */}
+    <div className="z-20 flex items-center justify-center w-12 h-12 bg-white border-4 border-amber-400 rounded-full shadow-xl">
+      <Icon className="text-amber-500" size={20} />
     </div>
+
+    {/* Content Card */}
     <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      className="w-5/12 p-8 bg-white rounded-[2.5rem] shadow-xl border-b-8 border-slate-900"
+      initial={{ opacity: 0, x: side === 'left' ? -50 : 50 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true, margin: "-100px" }}
+      className={`w-5/12 p-8 bg-white rounded-[2.5rem] shadow-xl border-b-8 border-slate-100 relative group overflow-hidden ${side === 'left' ? 'text-right' : 'text-left'}`}
     >
-      <h3 className="text-2xl font-black text-slate-900 mb-3">{title}</h3>
-      <p className="text-slate-500 leading-relaxed font-medium text-sm">{desc}</p>
+      {/* Cartoon Image */}
+      <div className={`mb-4 flex ${side === 'left' ? 'justify-end' : 'justify-start'}`}>
+        <img src={img} alt={title} className="w-20 h-20 drop-shadow-lg group-hover:scale-110 transition-transform duration-500" />
+      </div>
+
+      <span className="text-amber-500 font-black text-xs uppercase tracking-[0.2em]">{time}</span>
+      <h3 className="text-2xl font-black text-slate-900 mt-1 italic">{title}</h3>
+      <p className="text-slate-500 mt-3 text-sm leading-relaxed font-bold">{desc}</p>
+      
+      {/* Status Badge */}
+      <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin System Active</span>
+      </div>
     </motion.div>
   </div>
 );
 
 export default function SchoolJourney() {
   const { scrollYProgress } = useScroll();
-  const busY = useTransform(scrollYProgress, [0, 1], ["0%", "92%"]);
+  const busY = useTransform(scrollYProgress, [0, 1], ["0%", "95%"]);
 
   return (
-    <div className="bg-amber-50 min-h-screen py-24 px-6 overflow-hidden">
+    <div className="bg-slate-50 min-h-screen py-20 px-6">
       <div className="max-w-5xl mx-auto relative">
-        <header className="text-center mb-32">
+        <header className="text-center mb-40">
           <div className="inline-flex items-center gap-2 bg-slate-900 text-amber-400 px-4 py-2 rounded-full mb-4">
             <Settings size={18} />
-            <span className="text-xs font-black uppercase tracking-widest">Admin Control</span>
+            <span className="text-xs font-black uppercase tracking-tighter">Fleet Command</span>
           </div>
-          <h1 className="text-5xl font-black italic text-slate-900">Full Fleet <span className="text-amber-500">Command.</span></h1>
-          <p className="text-slate-600 mt-4 font-bold">Managing student safety at scale.</p>
+          <h1 className="text-6xl font-black italic text-slate-900 tracking-tighter">
+            Full Fleet <span className="text-amber-500 underline decoration-slate-200">Command.</span>
+          </h1>
+          <p className="text-slate-500 mt-6 font-bold text-lg max-w-xl mx-auto">
+            A comprehensive 12-hour timeline of smart school transport management.
+          </p>
         </header>
 
-        <div className="absolute left-1/2 transform -translate-x-1/2 h-[80%] w-2 bg-slate-200/50 rounded-full top-64" />
-        
-        <motion.div style={{ top: busY }} className="absolute left-1/2 transform -translate-x-1/2 z-30 top-64">
-           <div className="bg-slate-900 p-4 rounded-2xl shadow-2xl border-2 border-amber-400">
-              <Bus className="text-amber-400" size={32} />
-           </div>
-        </motion.div>
+        {/* THE CENTRAL ROAD (White/Slate Road) */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 h-[85%] w-6 bg-slate-400 border-x-4 border-slate-300 rounded-full top-80 shadow-inner overflow-hidden">
+          <div className="h-full w-full border-l-2 border-dashed border-white/50 ml-[10px]" />
 
+          {/* THE ANIMATED 3D RED BUS */}
+          <motion.div 
+            style={{ top: busY }} 
+            className="absolute left-1/2 transform -translate-x-1/2 z-30 transition-all duration-300"
+          >
+            <div className="relative">
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-6 bg-black/20 blur-md rounded-full" />
+              <img 
+                src="https://cdn-icons-png.flaticon.com/512/1042/1042257.png" // Cartoon Red Bus
+                alt="3D Red Bus" 
+                className="w-16 h-16 drop-shadow-2xl"
+              />
+            </div>
+          </motion.div>
+        </div>
+
+        {/* TIMELINE STEPS (Expanded Schedule) */}
         <div className="relative z-10">
-          <SchoolStep side="right" icon={LayoutDashboard} title="The Overview" desc="See every bus in your fleet on a single live-tracking dashboard with speed and route data." />
-          <SchoolStep side="left" icon={Users} title="Driver Management" desc="Assign drivers to routes, track their attendance, and monitor driving behavior automatically." />
-          <SchoolStep side="right" icon={ShieldAlert} title="Incident Alerts" desc="Instant notifications if a bus deviates from its route or exceeds the speed limit." />
-          <SchoolStep side="left" icon={BarChart3} title="Data Insights" desc="Generate weekly reports on fuel efficiency, on-time performance, and student ridership." />
+          <SchoolStep 
+            side="right" time="06:00 AM" icon={ClipboardCheck} 
+            title="Pre-Trip Readiness" 
+            img="https://cdn-icons-png.flaticon.com/512/2821/2821637.png" 
+            desc="Automated check-in for drivers. The system verifies GPS health and fuel levels before departure." 
+          />
+          
+          <SchoolStep 
+            side="left" time="07:30 AM" icon={LayoutDashboard} 
+            title="Active Monitoring" 
+            img="https://cdn-icons-png.flaticon.com/512/854/854878.png" 
+            desc="The Master Dashboard lights up. Admin sees all 50+ buses moving live across the city map." 
+          />
+
+          <SchoolStep 
+            side="right" time="09:00 AM" icon={ShieldAlert} 
+            title="Safety Protocol" 
+            img="https://cdn-icons-png.flaticon.com/512/1157/1157019.png" 
+            desc="Morning session audit. System flags any over-speeding or unscheduled stops for review." 
+          />
+
+          <SchoolStep 
+            side="left" time="01:00 PM" icon={Fuel} 
+            title="Route Optimization" 
+            img="https://cdn-icons-png.flaticon.com/512/3201/3201521.png" 
+            desc="Admin adjusts afternoon routes based on live city traffic data to save fuel and time." 
+          />
+
+          <SchoolStep 
+            side="right" time="04:00 PM" icon={BarChart3} 
+            title="Ridership Reports" 
+            img="https://cdn-icons-png.flaticon.com/512/4222/4222025.png" 
+            desc="Attendance data syncs with school records. See exactly which students are currently on which bus." 
+          />
+
+          <SchoolStep 
+            side="left" time="06:00 PM" icon={History} 
+            title="Fleet Archiving" 
+            img="https://cdn-icons-png.flaticon.com/512/3503/3503786.png" 
+            desc="Day complete. All journey logs are archived for 365 days for safety insurance and parent queries." 
+          />
         </div>
       </div>
     </div>
