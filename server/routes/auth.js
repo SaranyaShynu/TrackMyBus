@@ -1,10 +1,10 @@
-console.log("🛠️ Auth routes file has been loaded by the server!");
+
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const User = require('../models/User'); // Ensure this path is correct
+const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 
 // --- REGISTER ROUTE ---

@@ -68,7 +68,7 @@ export default function SchoolJourney() {
             <div className="relative">
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-6 bg-black/20 blur-md rounded-full" />
               <img 
-                src="https://cdn-icons-png.flaticon.com/512/1042/1042257.png" // Cartoon Red Bus
+                src="https://cdn-icons-png.flaticon.com/512/3448/3448339.png" // Cartoon Red Bus
                 alt="3D Red Bus" 
                 className="w-16 h-16 drop-shadow-2xl"
               />
