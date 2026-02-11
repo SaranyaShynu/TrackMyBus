@@ -9,13 +9,13 @@ import ContactModal from '../components/ContactModal';
 
 // 1. DEFINE THE DATA (This fixes your ReferenceError)
 const thalasseryFleet = [
-  { busNo: "BUS-01", route: "Dharmadam", driver: "P. Mukundan", dMob: "+91 98470 12345", assistant: "Reji K.", aMob: "+91 98470 54321", status: "On Time", students: 18, coords: [11.7761, 75.4674], landmark: "Brennan College" },
-  { busNo: "BUS-02", route: "Kolassery", driver: "Suresh Babu", dMob: "+91 98470 22334", assistant: "Vineeth M.", aMob: "+91 98470 44332", status: "On Time", students: 14, coords: [11.7654, 75.5122], landmark: "Kolassery Junction" },
-  { busNo: "BUS-03", route: "Manekkara", driver: "K. Gangadharan", dMob: "+91 98470 33445", assistant: "Shaji P.", aMob: "+91 98470 55443", status: "5 mins Delay", students: 22, coords: [11.7289, 75.5531], landmark: "Manekkara School" },
-  { busNo: "BUS-04", route: "Koppalam", driver: "Ratheesh V.", dMob: "+91 98470 66778", assistant: "Anas T.", aMob: "+91 98470 88776", status: "On Time", students: 10, coords: [11.7441, 75.4852], landmark: "Koppalam Junction" },
-  { busNo: "BUS-05", route: "Temple Gate", driver: "Pradeepan K.", dMob: "+91 98470 11223", assistant: "Sumesh R.", aMob: "+91 98470 33221", status: "On Time", students: 12, coords: [11.7380, 75.4947], landmark: "Jagannath Temple" },
-  { busNo: "BUS-06", route: "Pinarayi", driver: "Vijayan T.", dMob: "+91 98470 99001", assistant: "Binu C.", aMob: "+91 98470 11009", status: "Heavy Traffic", students: 19, coords: [11.8025, 75.5186], landmark: "Pinarayi Town" },
-  { busNo: "BUS-07", route: "Chonadam", driver: "Manoj Kumar", dMob: "+91 98470 77889", assistant: "Deepak S.", aMob: "+91 98470 99887", status: "On Time", students: 15, coords: [11.7612, 75.4884], landmark: "Chonadam Bypass" },
+  { busNo: "BUS-01", route: "Dharmadam", driver: "P. Mukundan", dMob: "+91 43170 12345", assistant: "Reji K.", aMob: "+91 05741 54321", status: "On Time", students: 18, coords: [11.7761, 75.4674], landmark: "Brennan College" },
+  { busNo: "BUS-02", route: "Kolassery", driver: "Suresh Babu", dMob: "+91 39070 22334", assistant: "Vineeth M.", aMob: "+91 33370 44332", status: "On Time", students: 14, coords: [11.7654, 75.5122], landmark: "Kolassery Junction" },
+  { busNo: "BUS-03", route: "Manekkara", driver: "K. Gangadharan", dMob: "+91 11270 33445", assistant: "Shaji P.", aMob: "+91 18970 55443", status: "5 mins Delay", students: 22, coords: [11.7289, 75.5531], landmark: "Manekkara School" },
+  { busNo: "BUS-04", route: "Koppalam", driver: "Ratheesh V.", dMob: "+91 57270 66778", assistant: "Anas T.", aMob: "+91 03170 88776", status: "On Time", students: 10, coords: [11.7441, 75.4852], landmark: "Koppalam Junction" },
+  { busNo: "BUS-05", route: "Temple Gate", driver: "Pradeepan K.", dMob: "+91 17670 11223", assistant: "Sumesh R.", aMob: "+91 47670 33221", status: "On Time", students: 12, coords: [11.7380, 75.4947], landmark: "Jagannath Temple" },
+  { busNo: "BUS-06", route: "Pinarayi", driver: "Vijayan T.", dMob: "+91 25770 99001", assistant: "Binu C.", aMob: "+91 39070 11009", status: "Heavy Traffic", students: 19, coords: [11.8025, 75.5186], landmark: "Pinarayi Town" },
+  { busNo: "BUS-07", route: "Chonadam", driver: "Manoj Kumar", dMob: "+91 55370 77889", assistant: "Deepak S.", aMob: "+91 57270 99887", status: "On Time", students: 15, coords: [11.7612, 75.4884], landmark: "Chonadam Bypass" },
 ];
 
 // Custom Bus Icon
@@ -68,7 +68,7 @@ export default function Dashboard() {
             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
               <div>
                 <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
-                  Bus <span className="text-amber-500">{selectedBus.busNo}</span>
+                   <span className="text-amber-500">{selectedBus.busNo}</span>
                 </h1>
                 <p className="text-slate-500 font-bold flex items-center gap-2 mt-1 underline decoration-amber-200">
                   <MapPin size={16} /> Route: {selectedBus.route}

@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 
 // Layout & UI Components
 import Navbar from './components/Navbar';
-import ContactModal from './components/ContactModal'; // Points to your new contact desk
+import ContactModal from './components/ContactModal';
 import Footer from './components/Footer';
 
 // Page Components
@@ -11,6 +11,10 @@ import Auth from './pages/Auth';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
+import DriverPanel from './pages/DriverPanel';
+import AdminPanel from './pages/AdminPanel';
 import ParentJourney from './pages/ParentJourney';
 import SchoolJourney from './pages/SchoolJourney';
 
@@ -35,14 +39,18 @@ const LoadingScreen = () => (
       className="mb-4"
     >
       <Bus size={64} className="text-slate-900" />
-    </motion.div>
+    </motion.div> 
   </div>
 );
 
 // --- PROTECTED ROUTE ---
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children , allowedRole }) => {
   const token = localStorage.getItem('token');
-  if (!token) return <Navigate to="/auth" replace />;
+  const user = JSON.parse(localStorage.getItem('user'))
+  if (!token) { return <Navigate to="/auth" replace />; }
+  if(allowedRole && user?.role !== allowedRole) {
+    return <Navigate to="/" replace />
+  }
   return children;
 };
 
@@ -73,7 +81,7 @@ const LandingPage = ({ onOpenContact, onHomeClick }) => {
                 onClick={() => navigate('/auth')} 
                 className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold shadow-xl hover:bg-amber-500 hover:text-slate-900 transition-all flex items-center gap-3 hover:-translate-y-1"
               >
-                Parent Portal Login <ArrowRight size={20} />
+                 Portal Login <ArrowRight size={20} />
               </button>
               <button 
                 onClick={onOpenContact}
@@ -198,7 +206,12 @@ export default function App() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/parent-journey" element={<ParentJourney />} />
         <Route path="/school-journey" element={<SchoolJourney />} /> 
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute allowedRole="parent"><Dashboard /></ProtectedRoute>} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/driverpanel" element={<ProtectedRoute allowedRole="driver"><DriverPanel /></ProtectedRoute>} />
+        <Route path="/adminpanel" element={<ProtectedRoute allowedRole="admin"><AdminPanel /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />

@@ -39,7 +39,7 @@ export default function ContactModal({ isOpen, onClose }) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[10000] flex items-start justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto pt-20 pb-10">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -138,7 +138,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock size={16} className="text-amber-500" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hours: 6am - 6pm</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hours: 7am - 6pm</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <AlertTriangle size={14} className="text-red-500" />

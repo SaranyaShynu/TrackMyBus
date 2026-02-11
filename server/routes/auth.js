@@ -9,7 +9,7 @@ const sendEmail = require('../utils/sendEmail');
 
 // --- REGISTER ROUTE ---
 router.post('/register', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, mobileNo } = req.body;
     try {
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ message: "User already exists" });
@@ -17,11 +17,11 @@ router.post('/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        user = new User({ name, email, password: hashedPassword, role: 'parent' });
+        user = new User({ name, email, password: hashedPassword, mobileNo, role: 'parent' });
         await user.save();
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.status(201).json({ success: true, token });
+        const token = jwt.sign({ id: user._id, role:user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.status(201).json({ success: true, token, user:{name:user.name, role:user.role} });
     } catch (err) {
         res.status(500).json({ message: "Registration error" });
     }
@@ -37,8 +37,8 @@ router.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ success: true, token, user: { name: user.name, role: user.role } });
+        const token = jwt.sign({ id: user._id, role:user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ success: true, token, user: { name: user.name, role: user.role, email:user.email } });
     } catch (err) {
         res.status(500).json({ message: "Login error" });
     }
@@ -46,19 +46,19 @@ router.post('/login', async (req, res) => {
 
 // --- GOOGLE LOGIN ---
 router.post('/google-login', async (req, res) => {
-    const { name, email, googleId } = req.body;
+    const { name, email, googleId, mobileNo } = req.body;
     try {
         let user = await User.findOne({ $or: [{ googleId }, { email }] });
 
         if (!user) {
-            user = new User({ name, email, googleId, role: 'parent' });
+            user = new User({ name, email, googleId, mobileNo:mobileNo || 'N/A', role: 'parent' });
             await user.save();
         } else if (!user.googleId) {
             user.googleId = googleId;
             await user.save();
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user._id, role:user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ success: true, token, user: { name: user.name, role: user.role } });
     } catch (err) {
         res.status(500).json({ message: "Server error during Google Login" });
