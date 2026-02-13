@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import { Moon, Sun, Bell, BellOff, ShieldCheck, Smartphone, Check } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // 1. Fix: Use { } for destructuring an object
+  const { isDarkMode, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
 
-  // Toggle Switch Component for reuse
+  // Toggle Switch Component
   const Toggle = ({ enabled, setEnabled, iconOn: IconOn, iconOff: IconOff }) => (
     <button
-      onClick={() => setEnabled(!enabled)}
+      onClick={setEnabled} // 2. Pass the function directly
       className={`relative inline-flex h-10 w-20 items-center rounded-full transition-colors duration-300 focus:outline-none ${
         enabled ? 'bg-amber-400' : 'bg-slate-200'
       }`}
@@ -52,7 +55,8 @@ export default function Settings() {
                     <p className="text-sm font-medium text-slate-400">Switch between light and dark themes</p>
                   </div>
                 </div>
-                <Toggle enabled={isDarkMode} setEnabled={setIsDarkMode} iconOn={Moon} iconOff={Sun} />
+                {/* 3. Fix: Pass toggleTheme here */}
+                <Toggle enabled={isDarkMode} setEnabled={toggleTheme} iconOn={Moon} iconOff={Sun} />
               </div>
             </div>
 
@@ -70,7 +74,8 @@ export default function Settings() {
                     <p className="text-sm font-medium text-slate-400">Arrival alerts and route updates</p>
                   </div>
                 </div>
-                <Toggle enabled={notifications} setEnabled={setNotifications} iconOn={Bell} iconOff={BellOff} />
+                {/* 4. Fix: Notifications toggle logic */}
+                <Toggle enabled={notifications} setEnabled={() => setNotifications(!notifications)} iconOn={Bell} iconOff={BellOff} />
               </div>
             </div>
 
@@ -92,6 +97,7 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

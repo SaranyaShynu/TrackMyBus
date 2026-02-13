@@ -4,3 +4,21 @@
   --color-bus-yellow: #facc15;
   --color-road-grey: #1e293b;
 }
+
+/* Custom Scrollbar for Dark Mode */
+.dark ::-webkit-scrollbar {
+  width: 10px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0f172a; /* slate-950 */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155; /* slate-700 */
+  border-radius: 5px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #fbbf24; /* amber-400 */
+}

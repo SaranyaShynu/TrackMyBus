@@ -2,12 +2,14 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Phone, Clock, Send, CheckCircle, AlertTriangle, ChevronDown } from 'lucide-react';
 import emailjs from '@emailjs/browser';
+import { useTheme } from '../context/ThemeContext';
 
 export default function ContactModal({ isOpen, onClose }) {
   const form = useRef();
-  const [status, setStatus] = useState('idle'); // 'idle' | 'sending' | 'success'
+  const [status, setStatus] = useState('idle'); 
   const [message, setMessage] = useState('');
   const [subject, setSubject] = useState('Late Bus');
+  const { isDarkMode } = useTheme();
 
   const handleSendInquiry = (e) => {
     e.preventDefault();
@@ -15,7 +17,6 @@ export default function ContactModal({ isOpen, onClose }) {
 
     setStatus('sending');
 
-    // --- CONFIGURATION ---
     const SERVICE_ID = 'service_o1mkrfa'; 
     const TEMPLATE_ID = 'template_w9hgtu7';
     const PUBLIC_KEY = 'yONGqMIp5n80bWVmM';
@@ -44,19 +45,28 @@ export default function ContactModal({ isOpen, onClose }) {
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden relative"
+          className={`w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden relative border transition-colors duration-500 ${
+            isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-transparent'
+          }`}
         >
           {/* Close Button */}
-          <button onClick={onClose} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full transition-colors z-10">
-            <X size={20} className="text-slate-400" />
+          <button 
+            onClick={onClose} 
+            className={`absolute top-6 right-6 p-2 rounded-full transition-colors z-10 ${
+              isDarkMode ? 'hover:bg-slate-800 text-slate-500' : 'hover:bg-slate-100 text-slate-400'
+            }`}
+          >
+            <X size={20} />
           </button>
 
           <div className="p-8 sm:p-12">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
+              <div className={`p-3 rounded-2xl ${isDarkMode ? 'bg-amber-400/10 text-amber-500' : 'bg-amber-100 text-amber-600'}`}>
                 <Phone size={24} />
               </div>
-              <h2 className="text-3xl font-black text-slate-900 italic">Transport <span className="text-amber-500">Desk.</span></h2>
+              <h2 className={`text-3xl font-black italic ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                Transport <span className="text-amber-500">Desk.</span>
+              </h2>
             </div>
 
             {status === 'success' ? (
@@ -64,7 +74,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 <div className="flex justify-center mb-4 text-green-500">
                   <CheckCircle size={64} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900">Message Sent!</h3>
+                <h3 className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Message Sent!</h3>
                 <p className="text-slate-500 mt-2 font-medium">The dispatcher has been notified.</p>
               </motion.div>
             ) : (
@@ -73,14 +83,18 @@ export default function ContactModal({ isOpen, onClose }) {
                 <div className="mb-8">
                   <a 
                     href="tel:+15550123456" 
-                    className="flex items-center justify-between p-5 bg-slate-900 text-white rounded-2xl hover:bg-amber-500 hover:text-slate-900 transition-all shadow-xl group"
+                    className={`flex items-center justify-between p-5 rounded-2xl transition-all shadow-xl group ${
+                      isDarkMode 
+                      ? 'bg-slate-800 text-white hover:bg-amber-500 hover:text-slate-900' 
+                      : 'bg-slate-900 text-white hover:bg-amber-500 hover:text-slate-900'
+                    }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className="bg-white/10 p-2 rounded-lg text-amber-400">
                         <Phone size={20} />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/80">Tap to Call Hotline</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-amber-400' : 'text-amber-400/80'}`}>Tap to Call Hotline</p>
                         <p className="text-lg font-black tracking-tight">(555) 012-3456</p>
                       </div>
                     </div>
@@ -92,7 +106,6 @@ export default function ContactModal({ isOpen, onClose }) {
 
                 {/* --- EMAIL FORM --- */}
                 <form ref={form} onSubmit={handleSendInquiry} className="space-y-4">
-                  {/* Subject Dropdown - Matches {{subject}} in EmailJS */}
                   <div>
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Inquiry Type</label>
                     <div className="relative mt-2">
@@ -100,7 +113,11 @@ export default function ContactModal({ isOpen, onClose }) {
                         name="subject" 
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
-                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl appearance-none outline-none focus:ring-2 focus:ring-amber-400 font-bold text-slate-700"
+                        className={`w-full p-4 border rounded-2xl appearance-none outline-none focus:ring-2 focus:ring-amber-400 font-bold transition-colors ${
+                          isDarkMode 
+                          ? 'bg-slate-800 border-slate-700 text-slate-200' 
+                          : 'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}
                       >
                         <option value="Late Bus">🚌 Bus is Late</option>
                         <option value="Lost Item">🎒 Lost Item</option>
@@ -111,7 +128,6 @@ export default function ContactModal({ isOpen, onClose }) {
                     </div>
                   </div>
 
-                  {/* Message Field - Matches {{message}} in EmailJS */}
                   <div>
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Message</label>
                     <textarea 
@@ -119,15 +135,21 @@ export default function ContactModal({ isOpen, onClose }) {
                       required
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      className="w-full mt-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-400 outline-none text-sm font-medium min-h-[100px]"
                       placeholder="Enter student name and details..."
+                      className={`w-full mt-2 p-4 border rounded-2xl outline-none text-sm font-medium min-h-[100px] focus:ring-2 focus:ring-amber-400 transition-colors ${
+                        isDarkMode 
+                        ? 'bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-600' 
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
                     />
                   </div>
 
                   <button 
                     type="submit"
                     disabled={status === 'sending'}
-                    className={`w-full py-4 bg-slate-900 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg ${status === 'sending' ? 'opacity-70 cursor-not-allowed' : 'hover:bg-amber-500 hover:text-slate-900'}`}
+                    className={`w-full py-4 font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg ${
+                      isDarkMode ? 'bg-amber-400 text-slate-900 hover:bg-amber-300' : 'bg-slate-900 text-white hover:bg-amber-500 hover:text-slate-900'
+                    } ${status === 'sending' ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
                     {status === 'sending' ? "Sending Email..." : (
                       <>Send Email to Dispatch <Send size={18} /></>
@@ -135,7 +157,7 @@ export default function ContactModal({ isOpen, onClose }) {
                   </button>
                 </form>
 
-                <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+                <div className={`mt-8 pt-6 border-t flex flex-wrap items-center justify-between gap-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                   <div className="flex items-center gap-2">
                     <Clock size={16} className="text-amber-500" />
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hours: 7am - 6pm</span>
