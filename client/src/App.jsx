@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 
-// Layout & UI Components
 import Navbar from './components/Navbar';
 import ContactModal from './components/ContactModal';
 import Footer from './components/Footer';
 
-// Page Components
 import Auth from './pages/Auth';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -18,7 +16,6 @@ import AdminPanel from './pages/AdminPanel';
 import ParentJourney from './pages/ParentJourney';
 import SchoolJourney from './pages/SchoolJourney';
 
-// Animation & Icons
 import { motion } from 'framer-motion';
 import { 
   Bus, 
