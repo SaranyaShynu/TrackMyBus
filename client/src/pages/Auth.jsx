@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import axios from 'axios';
-import { useTheme } from '../context/ThemeContext'; // Import Theme
+import { useTheme } from '../context/ThemeContext';
 
 export default function Auth() {
   const { isDarkMode } = useTheme(); // Consume theme
@@ -132,7 +132,7 @@ export default function Auth() {
                 <>
                   <div className="relative group">
                     <User className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                    <input name="name" type="text" placeholder="Full Name" required 
+                    <input name="name" type="text" placeholder="Full Name" required value={formData.name} onChange={handleChange}
                       className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                         isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                       }`} 
@@ -140,7 +140,7 @@ export default function Auth() {
                   </div>
                   <div className="relative group">
                     <Phone className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                    <input name="mobileNo" type="tel" placeholder="Mobile Number" required 
+                    <input name="mobileNo" type="tel" placeholder="Mobile Number" required value={formData.mobileNo} onChange={handleChange}
                       className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                         isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                       }`} 
@@ -151,7 +151,7 @@ export default function Auth() {
               
               <div className="relative group">
                 <Mail className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                <input name="email" type="email" placeholder="Email Address" required 
+                <input name="email" type="email" placeholder="Email Address" required value={formData.email} onChange={handleChange}
                   className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                     isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                   }`} 
@@ -160,7 +160,7 @@ export default function Auth() {
 
               <div className="relative group">
                 <Lock className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                <input name="password" type="password" placeholder="Password" required 
+                <input name="password" type="password" placeholder="Password" required value={formData.password} onChange={handleChange}
                   className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                     isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                   }`} 

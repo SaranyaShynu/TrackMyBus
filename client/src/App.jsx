@@ -15,6 +15,7 @@ import DriverPanel from './pages/DriverPanel';
 import AdminPanel from './pages/AdminPanel';
 import ParentJourney from './pages/ParentJourney';
 import SchoolJourney from './pages/SchoolJourney';
+import AdminPanel from './pages/AdminPanel';
 
 import { motion } from 'framer-motion';
 import { 
