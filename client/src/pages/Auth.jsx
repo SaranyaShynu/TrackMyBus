@@ -24,7 +24,7 @@ export default function Auth() {
 
   const handleRedirection = (user) => {
     if (user.role === 'admin') {
-      navigate('/adminpanel');
+      navigate('/admin-panel');
     } else if (user.role === 'driver') {
       navigate('/driver-panel');
     } else {

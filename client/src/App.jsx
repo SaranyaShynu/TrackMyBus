@@ -206,8 +206,8 @@ export default function App() {
         <Route path="/dashboard" element={<ProtectedRoute allowedRole="parent"><Dashboard /></ProtectedRoute>} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/driverpanel" element={<ProtectedRoute allowedRole="driver"><DriverPanel /></ProtectedRoute>} />
-        <Route path="/adminpanel" element={<ProtectedRoute allowedRole="admin"><AdminPanel /></ProtectedRoute>} />
+        <Route path="/driver-panel" element={<ProtectedRoute allowedRole="driver"><DriverPanel /></ProtectedRoute>} />
+        <Route path="/admin-panel" element={<ProtectedRoute allowedRole="admin"><AdminPanel /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

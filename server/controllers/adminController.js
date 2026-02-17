@@ -12,7 +12,7 @@ exports.addBus = async (req, res) => {
 };
 
 exports.createDriver=async (req,res) => {
-    const { name, email, mobileNo, busNumber } = req.body;
+    const { name, email, mobileNo, password, assignedBus, role } = req.body;
     try{
         const existingUser=await User.findOne({email});
         if (existingUser) return res.status(400).json({message: "Email already registered" });
@@ -25,24 +25,25 @@ exports.createDriver=async (req,res) => {
             email,
             password:hashedPassword,
             mobileNo,
-            role:'driver',
-            busNumber
+            role:role || 'driver',
+            assignedBus
         });
          
         await newDriver.save();
 
         res.status(201).json({
             success:true,
-            message:"Driver account created by successfully Admin"
+            message:`${newDriver.role} account created successfully`
         });
     } catch(err) {
-        res.status(500).json({message:"Error creating Driver account"});
+        console.error(err);
+        res.status(500).json({message:"Error creating staff account"});
     }
 }
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find().select('-password');
+        const users = await User.find().select('-password').populate('assignedBus', 'busNumber route schoolBuilding');
         res.json(users);
     } catch (err) {
         res.status(500).json({ message: "Error fetching users" });
