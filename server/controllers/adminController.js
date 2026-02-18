@@ -1,13 +1,24 @@
 const User = require('../models/User');
 const Bus = require('../models/Bus');
+const bcrypt = require('bcryptjs');
 
 exports.addBus = async (req, res) => {
     try {
-        const newBus = new Bus(req.body);
+        const { busNo, route, schoolBuilding } = req.body;
+        const newBus = new Bus({ busNo, route, schoolBuilding });
         await newBus.save();
         res.status(201).json({ success: true, bus: newBus });
     } catch (err) {
         res.status(400).json({ message: "Could not add bus. Ensure Bus No is unique." });
+    }
+};
+
+exports.getAllBuses = async (req, res) => {
+    try {
+        const buses = await Bus.find();
+        res.json(buses);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching buses" });
     }
 };
 
@@ -26,7 +37,7 @@ exports.createDriver=async (req,res) => {
             password:hashedPassword,
             mobileNo,
             role:role || 'driver',
-            assignedBus
+            assignedBus:assignedBus || null
         });
          
         await newDriver.save();
