@@ -8,6 +8,8 @@ router.post('/add-bus', protect, authorize(['admin']), adminController.addBus);
 router.post('/create-driver', protect, authorize(['admin']), adminController.createDriver);
 router.get('/all-users', protect, authorize(['admin']), adminController.getAllUsers);
 router.get('/buses', protect, authorize(['admin']), adminController.getAllBuses);
+router.put('/user/:id' , protect, authorize(['admin']), adminController.updateUser);
+router.put('/bus/:id' , protect, authorize(['admin']), adminController.updateBus);
 router.delete('/user/:id', protect, authorize(['admin']), adminController.deleteUser);
 
 module.exports = router;

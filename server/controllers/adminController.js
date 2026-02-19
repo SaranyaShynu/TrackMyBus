@@ -61,6 +61,52 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
+exports.updateUser = async (req,res) => {
+    try {
+        const {id} = req.params;
+        const {name, email, mobileNo, assignedBus} = req.body;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            {name, email, mobileNo, assignedBus},
+            {new: true, runValidators:true}
+        );
+        if(!updatedUser){
+            return res.status(404).json({message:'User not found'});
+        }
+        res.status(200).json({
+            success:true,
+            message:'User updated Successfully',
+            data:updatedUser
+        })
+    }  catch(err){
+        res.status(500).json({message:'Server error during update'});
+    }
+}
+
+exports.updateBus = async (req,res) => {
+    try{
+        const {id} = req.params;
+        const {busNo, route, schoolBuilding, capacity} = req.body;
+
+        const updatedBus = await Bus.findByIdAndUpdate(
+            id,
+            {busNo, route, schoolBuilding, capacity},
+            {new:true, runValidators:true}
+        );
+        if(!updatedBus) {
+            return res.status(404).json({message:'Bus not found'});
+        }
+        res.status(200).json({
+            success:true,
+            message:'Bus details updated Successfully',
+            data:updatedBus
+        });
+    }  catch(err) {
+        res.status(500).json({message:'Server error updating bus'});
+    }
+}
+
 exports.deleteUser = async (req, res) => {
     try {
         await User.findByIdAndDelete(req.params.id);
