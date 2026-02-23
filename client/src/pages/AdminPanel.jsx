@@ -18,8 +18,8 @@ export default function AdminPanel() {
   const [buses, setBuses] = useState([]);
   const [editingUser, setEditingUser] = useState(null);
   const [editingBus, setEditingBus] = useState(null);
-  const [showModal, setShowModal] = useState(null); 
-  
+  const [showModal, setShowModal] = useState(null);
+
   // Search States
   const [busSearchQuery, setBusSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -85,9 +85,9 @@ export default function AdminPanel() {
       alert("Staff Details Updated Successfully");
       setShowModal(null);
       fetchData();
-    } catch (err) { 
+    } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Update failed. Check if user ID exists."); 
+      alert(err.response?.data?.message || "Update failed. Check if user ID exists.");
     }
   };
 
@@ -103,12 +103,24 @@ export default function AdminPanel() {
   };
 
   const handleDeleteUser = async (id) => {
-    if(!window.confirm("Delete this user?")) return;
+    if (!window.confirm("Delete this user?")) return;
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.delete(`http://localhost:5000/api/admin/user/${id}`, config);
       fetchData();
     } catch (err) { alert("Delete failed"); }
+  };
+
+  const handleDeleteBus = async (id) => {
+    if (!window.confirm("Are you sure? Deleting this bus may affect assigned drivers.")) return;
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`http://localhost:5000/api/admin/bus/${id}`, config);
+      alert("Bus removed from fleet");
+      fetchData(); // Refresh the list
+    } catch (err) {
+      alert("Delete failed. This bus might be assigned to a user.");
+    }
   };
 
   const openUserEdit = (user) => {
@@ -134,13 +146,13 @@ export default function AdminPanel() {
   };
 
   // --- FILTERING LOGIC ---
-  const filteredBuses = buses.filter(b => 
-    b.busNo.toLowerCase().includes(busSearchQuery.toLowerCase()) || 
+  const filteredBuses = buses.filter(b =>
+    b.busNo.toLowerCase().includes(busSearchQuery.toLowerCase()) ||
     b.route.toLowerCase().includes(busSearchQuery.toLowerCase())
   );
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+  const filteredUsers = users.filter(u =>
+    u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
     u.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
     (u.assignedBus?.busNo && u.assignedBus.busNo.toLowerCase().includes(userSearchQuery.toLowerCase()))
   );
@@ -209,9 +221,9 @@ export default function AdminPanel() {
                 <h2 className="text-2xl font-black italic uppercase tracking-tighter">Fleet <span className="text-amber-500">Directory</span></h2>
                 <div className="relative w-80">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Search Plate or Route..." 
+                  <input
+                    type="text"
+                    placeholder="Search Plate or Route..."
                     value={busSearchQuery}
                     onChange={(e) => setBusSearchQuery(e.target.value)}
                     className={`w-full pl-14 pr-6 py-4 rounded-2xl border-2 font-bold outline-none focus:border-amber-500 transition-all ${input}`}
@@ -233,13 +245,18 @@ export default function AdminPanel() {
                       <tr key={bus._id} className="hover:bg-slate-500/5 transition-colors">
                         <td className="p-6 font-black italic text-amber-500">{bus.busNo}</td>
                         <td className="p-6">
-                            <div className="font-bold text-sm tracking-tight">{bus.route}</div>
-                            <div className="text-[9px] opacity-50 uppercase font-black">{bus.schoolBuilding}</div>
+                          <div className="font-bold text-sm tracking-tight">{bus.route}</div>
+                          <div className="text-[9px] opacity-50 uppercase font-black">{bus.schoolBuilding}</div>
                         </td>
                         <td className="p-6 text-right">
-                          <button onClick={() => openBusEdit(bus)} className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-all">
-                            <Edit2 size={16} />
-                          </button>
+                          <div className="flex justify-end items-center gap-2">
+                            <button onClick={() => openBusEdit(bus)} className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-all">
+                              <Edit2 size={16} />
+                            </button>
+                            <button onClick={() => handleDeleteBus(bus._id)} className="p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -296,9 +313,9 @@ export default function AdminPanel() {
                 <h2 className="text-2xl font-black italic uppercase tracking-tighter">User <span className="text-blue-500">Directory</span></h2>
                 <div className="relative w-80">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Search Name, Email, or Bus..." 
+                  <input
+                    type="text"
+                    placeholder="Search Name, Email, or Bus..."
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
                     className={`w-full pl-14 pr-6 py-4 rounded-2xl border-2 font-bold outline-none focus:border-amber-500 transition-all ${input}`}
@@ -345,7 +362,6 @@ export default function AdminPanel() {
         </main>
       </div>
 
-      {/* RESTORED FOOTER */}
       <footer className={`h-14 border-t flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] opacity-40 ${adminDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200'}`}>
         System OS &copy; 2026 | Fleet Management Hub
       </footer>
@@ -361,11 +377,11 @@ export default function AdminPanel() {
             <form onSubmit={showModal === 'user' ? handleUpdateUser : handleUpdateBus} className="space-y-6">
               {showModal === 'user' ? (
                 <div className="space-y-4">
-                  {/* EXPANDED STAFF EDITING FIELDS */}
-                  <InputGroup label="Full Name" icon={Users} value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})} dark={adminDark} />
-                  <InputGroup label="Email Address" icon={Mail} value={editingUser.email} onChange={e => setEditingUser({...editingUser, email: e.target.value})} dark={adminDark} />
-                  <InputGroup label="Mobile No" icon={Phone} value={editingUser.mobileNo} onChange={e => setEditingUser({...editingUser, mobileNo: e.target.value})} dark={adminDark} />
-                  
+
+                  <InputGroup label="Full Name" icon={Users} value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} dark={adminDark} />
+                  <InputGroup label="Email Address" icon={Mail} value={editingUser.email} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} dark={adminDark} />
+                  <InputGroup label="Mobile No" icon={Phone} value={editingUser.mobileNo} onChange={e => setEditingUser({ ...editingUser, mobileNo: e.target.value })} dark={adminDark} />
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Vehicle Assignment</label>
                     <select value={editingUser.assignedBus} onChange={e => setEditingUser({ ...editingUser, assignedBus: e.target.value })} className={`w-full p-5 rounded-2xl border-2 font-bold outline-none ${adminDark ? 'bg-slate-800 border-transparent text-white' : 'bg-slate-100 border-slate-200'}`}>
@@ -376,10 +392,10 @@ export default function AdminPanel() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <InputGroup label="Route Name" icon={Navigation} value={editingBus.route} onChange={e => setEditingBus({...editingBus, route: e.target.value})} dark={adminDark} />
+                  <InputGroup label="Route Name" icon={Navigation} value={editingBus.route} onChange={e => setEditingBus({ ...editingBus, route: e.target.value })} dark={adminDark} />
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Location</label>
-                    <select value={editingBus.schoolBuilding} onChange={e => setEditingBus({...editingBus, schoolBuilding: e.target.value})} className={`w-full p-5 rounded-2xl border-2 font-bold outline-none ${adminDark ? 'bg-slate-800 border-transparent text-white' : 'bg-slate-100 border-slate-200'}`}>
+                    <select value={editingBus.schoolBuilding} onChange={e => setEditingBus({ ...editingBus, schoolBuilding: e.target.value })} className={`w-full p-5 rounded-2xl border-2 font-bold outline-none ${adminDark ? 'bg-slate-800 border-transparent text-white' : 'bg-slate-100 border-slate-200'}`}>
                       <option value="Building A">Building A</option>
                       <option value="Building B">Building B</option>
                     </select>

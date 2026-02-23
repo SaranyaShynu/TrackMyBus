@@ -11,5 +11,6 @@ router.get('/buses', protect, authorize(['admin']), adminController.getAllBuses)
 router.put('/user/:id' , protect, authorize(['admin']), adminController.updateUser);
 router.put('/bus/:id' , protect, authorize(['admin']), adminController.updateBus);
 router.delete('/user/:id', protect, authorize(['admin']), adminController.deleteUser);
+router.delete('/bus/:id', protect, authorize(['admin']),adminController.deleteBus);
 
 module.exports = router;
