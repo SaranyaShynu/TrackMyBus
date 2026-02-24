@@ -1,7 +1,7 @@
 
 const User = require('../models/User');
 
-exports.getDriverProfile = async (req, res) => {
+/*exports.getDriverProfile = async (req, res) => {
     try {
         const driver = await User.findById(req.user.id)
             .select('-password')
@@ -16,4 +16,4 @@ exports.getDriverProfile = async (req, res) => {
         console.error(err);
         res.status(500).json({ message: "Server error fetching profile" });
     }
-};
+}; */

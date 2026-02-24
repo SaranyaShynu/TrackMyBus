@@ -15,7 +15,7 @@ const protect = async (req, res, next) => {
 
             // 3. Get user from the database (excluding password)
             // This attaches the user object (id, name, role) to every request
-            req.user = await User.findById(decoded.id).select('-password');
+            req.user = await User.findById(decoded.id).select('-password').populate('assignedBus');
 
             if (!req.user) {
                 return res.status(401).json({ message: "User no longer exists" });

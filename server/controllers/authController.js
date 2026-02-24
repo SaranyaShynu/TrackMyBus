@@ -36,7 +36,7 @@ exports.login = async (req, res) => {
         if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
         const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ success: true, token, user: { name: user.name, role: user.role, email: user.email, assignedBus:user.assignedBus } });
+        res.json({ success: true, token, user: { id: user._id, name: user.name, role: user.role, email: user.email, assignedBus: user.assignedBus } });
     } catch (err) {
         res.status(500).json({ message: "Login error" });
     }
@@ -46,7 +46,7 @@ exports.login = async (req, res) => {
 exports.googleLogin = async (req, res) => {
     const { name, email, googleId, mobileNo } = req.body;
     try {
-        let user = await User.findOne({ $or: [{ googleId }, { email }] });
+        let user = await User.findOne({ $or: [{ googleId }, { email }] }).populate('assignedBus');
 
         if (!user) {
             user = new User({ name, email, googleId, mobileNo: mobileNo || 'N/A', role: 'parent' });
@@ -57,7 +57,7 @@ exports.googleLogin = async (req, res) => {
         }
 
         const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ success: true, token, user: { name: user.name, role: user.role } });
+        res.json({ success: true, token, user: { id: user._id, name: user.name, email: user.email, role: user.role, assignedBus: user.assignedBus } });
     } catch (err) {
         res.status(500).json({ message: "Server error during Google Login" });
     }
@@ -70,11 +70,11 @@ exports.forgotPassword = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetToken = resetToken;
-    user.resetTokenExpiry = Date.now() + 3600000; 
+    user.resetTokenExpiry = Date.now() + 3600000;
     await user.save();
 
     const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
-    
+
     try {
         await sendEmail({
             email: user.email,
@@ -104,9 +104,30 @@ exports.resetPassword = async (req, res) => {
         user.password = await bcrypt.hash(req.body.password, salt);
         user.resetToken = undefined;
         user.resetTokenExpiry = undefined;
-        
+
         await user.save();
         res.json({ success: true, message: "Password reset successful" });
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .select('-password')
+            .populate({
+                path: 'assignedBus',
+                model: 'Bus'
+            })
+            .populate({
+                path: 'children',
+                populate: { path: 'assignedBus', model: 'Bus' }
+            });
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        res.json(user);
     } catch (err) {
         res.status(500).json({ message: "Server error" });
     }

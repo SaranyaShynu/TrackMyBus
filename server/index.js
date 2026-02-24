@@ -20,7 +20,6 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected Successfully"))
   .catch(err => console.log("❌ MongoDB Connection Error:", err));
 
-// Test Route
 app.get('/', (req, res) => res.send("TrackMyBus API is running..."));
 
 const PORT = process.env.PORT || 5000;

@@ -6,6 +6,12 @@ const BusSchema = new mongoose.Schema({
         required: true, 
         unique: true 
     },
+    schoolBuilding: { 
+        type: String, 
+        required: true, 
+        enum: ['Building A', 'Building B'], 
+        default: 'Building A' 
+    },
     route: { 
         type: String, 
         required: true 
@@ -14,6 +20,7 @@ const BusSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User' 
     },
+    driverPhone: String,
     status: { 
         type: String, 
         enum: ['active', 'inactive', 'maintenance'], 
