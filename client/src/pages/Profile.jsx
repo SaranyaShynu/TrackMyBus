@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
-import Footer from '../components/Footer'; // Import Footer
+import Footer from '../components/Footer';
 import { User, Mail, Phone, Camera, Save, MapPin, Plus, Trash2, Baby } from 'lucide-react';
 import axios from 'axios';
-import { useTheme } from '../context/ThemeContext'; // Import Theme
+import { useTheme } from '../context/ThemeContext';
 
 export default function Profile() {
-  const { isDarkMode } = useTheme(); // Consume Theme
+  const { isDarkMode } = useTheme();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -20,7 +20,7 @@ export default function Profile() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:5000/api/user/profile', {
+        const res = await axios.get('http://localhost:5000/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setFormData({ ...res.data, children: res.data.children || [""] });
@@ -178,7 +178,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <Footer /> {/* Footer Added Here */}
+      <Footer />
     </div>
   );
 }

@@ -3,6 +3,37 @@ const Bus = require('../models/Bus');
 const bcrypt = require('bcryptjs');
 const { Await } = require('react-router-dom');
 
+exports.addStudent = async (req, res) => {
+  try {
+    const { name, rollNumber, grade, parentEmail, assignedBus, bloodGroup } = req.body;
+
+    const parent = await User.findOne({ email: parentEmail, role: 'parent' });
+    if (!parent) {
+      return res.status(404).json({ message: "Parent with this email not found." });
+    }
+
+    const newStudent = {
+      name,
+      rollNumber,
+      grade,
+      bloodGroup,
+      assignedBus
+    };
+
+    parent.children.push(newStudent);
+    await parent.save();
+
+    res.status(201).json({ 
+      success: true, 
+      message: `Student ${name} enrolled and linked to ${parent.name}` 
+    });
+
+  } catch (error) {
+    console.error("Add Student Error:", error);
+    res.status(500).json({ message: "Server error during student enrollment" });
+  }
+};
+
 exports.addBus = async (req, res) => {
     try {
         const { busNo, route, schoolBuilding } = req.body;
@@ -23,7 +54,7 @@ exports.getAllBuses = async (req, res) => {
     }
 };
 
-exports.createDriver=async (req,res) => {
+exports.addStaff=async (req,res) => {
     const { name, email, mobileNo, password, assignedBus, role } = req.body;
     try{
         const existingUser=await User.findOne({email});
@@ -55,11 +86,45 @@ exports.createDriver=async (req,res) => {
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find().select('-password').populate('assignedBus', 'busNumber route schoolBuilding');
+        const users = await User.find().select('-password').populate('assignedBus', 'busNo route schoolBuilding').populate({path:'children.assignedBus', model:'Bus', select:'busNo route schoolBuilding'});
         res.json(users);
     } catch (err) {
         res.status(500).json({ message: "Error fetching users" });
     }
+};
+
+exports.updateStudent = async (req, res) => {
+  try {
+    const { parentId, studentId } = req.params;
+    const { name, grade, rollNumber, bloodGroup, assignedBus } = req.body;
+
+    const updatedParent = await User.findOneAndUpdate(
+      { _id: parentId, "children._id": studentId },
+      {
+        $set: {
+          "children.$.name": name,
+          "children.$.grade": grade,
+          "children.$.rollNumber": rollNumber,
+          "children.$.bloodGroup": bloodGroup,
+          "children.$.assignedBus": assignedBus || null,
+        }
+      },
+      { new: true }
+    ).populate('children.assignedBus');
+
+    if (!updatedParent) {
+      return res.status(404).json({ message: "Parent or Student not found" });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Student details updated!", 
+      data: updatedParent.children 
+    });
+  } catch (error) {
+    console.error("Update Student Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
 
 exports.updateUser = async (req,res) => {
@@ -107,6 +172,21 @@ exports.updateBus = async (req,res) => {
         res.status(500).json({message:'Server error updating bus'});
     }
 }
+
+exports.deleteStudent = async (req, res) => {
+  try {
+    const { parentId, studentId } = req.params;
+
+    // Use $pull to remove the specific student from the children array
+    await User.findByIdAndUpdate(parentId, {
+      $pull: { children: { _id: studentId } }
+    });
+
+    res.json({ success: true, message: "Student removed successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting student" });
+  }
+};
 
 exports.deleteUser = async (req, res) => {
     try {

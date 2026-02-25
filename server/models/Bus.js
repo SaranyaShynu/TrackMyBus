@@ -9,7 +9,7 @@ const BusSchema = new mongoose.Schema({
     schoolBuilding: { 
         type: String, 
         required: true, 
-        enum: ['Building A', 'Building B'], 
+        enum: ['Building A', 'Building B', 'Both', 'Emergency'], 
         default: 'Building A' 
     },
     route: { 
@@ -26,6 +26,7 @@ const BusSchema = new mongoose.Schema({
         enum: ['active', 'inactive', 'maintenance'], 
         default: 'active' 
     },
+    assistant: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     currentLocation: {
         lat: { type: Number, default: 0 },
         lng: { type: Number, default: 0 }
