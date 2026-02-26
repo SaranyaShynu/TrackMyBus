@@ -208,6 +208,7 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/driver-panel" element={<ProtectedRoute allowedRole="driver"><DriverPanel /></ProtectedRoute>} />
         <Route path="/admin-panel" element={<ProtectedRoute allowedRole="admin"><AdminPanel /></ProtectedRoute>} />
+       {/* <Route path="/admin/bus-summary" element={<BusSummary />} />   */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

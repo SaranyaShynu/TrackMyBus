@@ -23,7 +23,8 @@ export default function Profile() {
         const res = await axios.get('http://localhost:5000/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setFormData({ ...res.data, children: res.data.children || [""] });
+        const childNames = res.data.children?.map(c => typeof c === 'object' ? c.name : c) || [""];
+        setFormData({ ...res.data, children: childNames });
       } catch (err) {
         console.error("Error fetching profile", err);
       }
@@ -142,7 +143,7 @@ export default function Profile() {
                       <input 
                         type="text" 
                         placeholder="Child's Name" 
-                        value={child} 
+                        value={typeof child === 'object' ? child.name : child}
                         onChange={(e) => handleChildChange(index, e.target.value)}
                         className={`w-full border rounded-2xl py-4 pl-12 pr-4 font-bold outline-none transition-all focus:ring-2 focus:ring-amber-400 ${
                           isDarkMode ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'

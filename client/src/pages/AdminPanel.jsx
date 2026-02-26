@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users, Bus, ShieldCheck, UserPlus, Edit2, Trash2, LayoutDashboard,
-  School, Moon, Sun, LogOut, ChevronRight, Hash, Navigation, Mail, Phone, Key, Search, Eye, X, GraduationCap, HardHat
+  School, Moon, Sun, LogOut, ChevronRight, Hash, Navigation, Mail, Phone, Key, Search, Eye, X, GraduationCap
 } from 'lucide-react';
 import axios from 'axios';
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('overview');
 
-  // --- ISOLATED THEME ---
+  // --- THEME ---
   const [adminDark, setAdminDark] = useState(() => {
     const saved = localStorage.getItem('admin-private-theme');
     return saved ? JSON.parse(saved) : true;
@@ -111,6 +111,7 @@ export default function AdminPanel() {
     e.preventDefault();
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
+      // Note: mapping 'id' to the backend expected param
       await axios.put(`http://localhost:5000/api/admin/user/${editingUser.id}`, editingUser, config);
       setShowModal(null);
       fetchData();
@@ -144,12 +145,25 @@ export default function AdminPanel() {
   };
 
   const openUserEdit = (user) => {
-    setEditingUser({ id: user._id, name: user.name, email: user.email, mobileNo: user.mobileNo, role: user.role, assignedBus: user.assignedBus?._id || '' });
+    setEditingUser({ 
+      id: user._id, 
+      name: user.name, 
+      email: user.email, 
+      mobileNo: user.mobileNo, 
+      role: user.role 
+    });
     setShowModal('user');
   };
 
   const openBusEdit = (bus) => {
-    setEditingBus({ id: bus._id, busNo: bus.busNo, route: bus.route, schoolBuilding: bus.schoolBuilding, driver: bus.driver?._id || '', assistant: bus.assistant?._id || '' });
+    setEditingBus({ 
+      id: bus._id, 
+      busNo: bus.busNo, 
+      route: bus.route, 
+      schoolBuilding: bus.schoolBuilding, 
+      driver: bus.driver?._id || bus.driver || '', 
+      assistant: bus.assistant?._id || bus.assistant || '' 
+    });
     setShowModal('bus');
   };
 
@@ -162,8 +176,16 @@ export default function AdminPanel() {
   const filteredBuses = buses.filter(b => b.busNo.toLowerCase().includes(busSearchQuery.toLowerCase()));
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || u.email.toLowerCase().includes(userSearchQuery.toLowerCase()));
   
-  const drivers = users.filter(u => u.role === 'driver');
-  const assistants = users.filter(u => u.role === 'assistant');
+  const drivers = users.filter(u => {if (u.role !== 'driver') return false;
+    const isCurrentlyAssignedToThisBus = editingBus && u.assignedBus === editingBus.id;
+  
+  return !u.assignedBus || isCurrentlyAssignedToThisBus;
+});
+  const assistants = users.filter(u => {
+  if (u.role !== 'assistant') return false;
+  const isCurrentlyAssignedToThisBus = editingBus && u._id === editingBus.assistant;
+  return !u.assignedBus || isCurrentlyAssignedToThisBus;
+});
 
   const allStudents = users.filter(u => u.role === 'parent').flatMap(p => 
     (p.children || []).map(c => ({ ...c, parentName: p.name, parentId: p._id }))
@@ -324,10 +346,11 @@ export default function AdminPanel() {
                         <td className="p-6">
                           <div className="flex flex-col gap-1">
                             <div className="text-[10px] font-bold">
-                              <span className="text-blue-500 uppercase text-[8px]">Driver:</span> {bus.driver?.name || 'Unassigned'}
+
+                              <span className="text-blue-500 uppercase text-[8px]">Driver:</span> {bus.driver?.name || (typeof bus.driver === 'string' ? 'ID: '+bus.driver.substring(18) : 'Unassigned')}
                             </div>
                             <div className="text-[10px] font-bold">
-                              <span className="text-purple-500 uppercase text-[8px]">Asst:</span> {bus.assistant?.name || 'Unassigned'}
+                              <span className="text-purple-500 uppercase text-[8px]">Asst:</span> {bus.assistant?.name || (typeof bus.assistant === 'string' ? 'ID: '+bus.assistant.substring(18) : 'Unassigned')}
                             </div>
                           </div>
                         </td>
@@ -442,7 +465,7 @@ export default function AdminPanel() {
                         </td>
                         <td className="p-6">
                           {(u.role === 'driver' || u.role === 'assistant') ? (
-                            u.assignedBus ? <span className="font-bold text-xs text-amber-500">{u.assignedBus.busNo}</span> : <span className="text-[10px] opacity-30 italic">No Bus</span>
+                            u.assignedBus ? <span className="font-bold text-xs text-amber-500">{u.assignedBus.busNo || u.assignedBus}</span> : <span className="text-[10px] opacity-30 italic">No Bus</span>
                           ) : u.role === 'parent' ? (
                             <div className="flex items-center gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${u.children?.length > 0 ? 'bg-blue-500 text-white' : 'bg-slate-500/10 text-slate-500'}`}>
@@ -471,6 +494,8 @@ export default function AdminPanel() {
       </div>
 
       {/* MODALS */}
+      
+      {/* 1. STUDENT EDIT MODAL */}
       {showModal === 'student-edit' && editingStudent && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className={`w-full max-w-md p-8 rounded-[2.5rem] border ${card}`}>
@@ -500,6 +525,7 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* 2. BUS EDIT MODAL */}
       {showModal === 'bus' && editingBus && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className={`w-full max-w-lg p-8 rounded-[2.5rem] border ${card}`}>
@@ -534,6 +560,40 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* 3. USER EDIT MODAL (New) */}
+      {showModal === 'user' && editingUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className={`w-full max-w-md p-8 rounded-[2.5rem] border ${card}`}>
+            <h2 className="text-xl font-black mb-6 uppercase italic tracking-tighter">Edit <span className="text-blue-500">User</span></h2>
+            <form onSubmit={handleUpdateUser} className="space-y-5">
+              <InputGroup label="Name" icon={Users} value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} dark={adminDark} />
+              <InputGroup label="Email" icon={Mail} value={editingUser.email} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} dark={adminDark} />
+              <InputGroup label="Mobile" icon={Phone} value={editingUser.mobileNo} onChange={e => setEditingUser({ ...editingUser, mobileNo: e.target.value })} dark={adminDark} />
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 ml-2">User Role</label>
+                <select 
+                  value={editingUser.role} 
+                  onChange={e => setEditingUser({ ...editingUser, role: e.target.value })} 
+                  className={`w-full p-5 rounded-2xl border-2 font-bold outline-none ${input}`}
+                >
+                  <option value="driver">Driver</option>
+                  <option value="assistant">Assistant</option>
+                  <option value="parent">Parent</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-black uppercase text-[10px]">Save User</button>
+                <button type="button" onClick={() => setShowModal(null)} className="px-6 py-4 rounded-xl font-black uppercase text-[10px] opacity-50">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. VIEW STUDENTS MODAL */}
       {showModal === 'view-students' && viewingParent && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className={`w-full max-w-lg p-8 rounded-[2.5rem] border ${card}`}>
