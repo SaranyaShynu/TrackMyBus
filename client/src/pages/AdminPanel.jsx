@@ -21,6 +21,8 @@ export default function AdminPanel() {
   const [editingStudent, setEditingStudent] = useState(null); 
   const [viewingParent, setViewingParent] = useState(null); 
   const [showModal, setShowModal] = useState(null);
+  const [selectedBus, setSelectedBus] = useState(null);
+  const [liveFleet, setLiveFleet] = useState([]);
 
   // Search States
   const [busSearchQuery, setBusSearchQuery] = useState('');
