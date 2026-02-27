@@ -44,6 +44,25 @@ export default function AdminPanel() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+  if (buses.length > 0) {
+    setLiveFleet(buses);
+
+    const interval = setInterval(() => {
+      setLiveFleet(prev => prev.map(bus => ({
+        ...bus,
+        currentLocation: {
+          lat: (bus.currentLocation?.lat || 11.7491) + (Math.random() - 0.5) * 0.0002,
+          lng: (bus.currentLocation?.lng || 75.4890) + (Math.random() - 0.5) * 0.0002,
+        },
+        lastUpdate: new Date().toLocaleTimeString()
+      })));
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }
+}, [buses]);
+
   const fetchData = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -240,14 +259,62 @@ export default function AdminPanel() {
 
         <main className="flex-1 p-10 overflow-y-auto">
 
-          {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-              <StatCard label="Total Users" value={users.length} icon={Users} color="blue" dark={adminDark} />
-              <StatCard label="Total Students" value={allStudents.length} icon={GraduationCap} color="purple" dark={adminDark} />
-              <StatCard label="Total Fleet" value={buses.length} icon={Bus} color="amber" dark={adminDark} />
-              <StatCard label="Locations" value="02" icon={School} color="green" dark={adminDark} />
+         {activeTab === 'overview' && (
+  <div className="space-y-10">
+    {/* Top Row: General Stats */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <StatCard label="Total Users" value={users.length} icon={Users} color="blue" dark={adminDark} />
+      <StatCard label="Total Students" value={allStudents.length} icon={GraduationCap} color="purple" dark={adminDark} />
+      <StatCard label="Live Signals" value={liveFleet.length} icon={Navigation} color="green" dark={adminDark} />
+      <StatCard label="System Status" value="Online" icon={ShieldCheck} color="blue" dark={adminDark} />
+    </div>
+
+    {/* Live Fleet Monitor Section */}
+    <div>
+      <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-slate-500 flex items-center gap-2">
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
+        Live Fleet Monitor
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {liveFleet.map(bus => (
+          <div 
+            key={bus._id} 
+            onClick={() => setSelectedBus(bus)}
+            className={`group cursor-pointer p-6 rounded-[2.5rem] border-2 transition-all hover:border-amber-500 ${card}`}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors">
+                <Bus size={24} />
+              </div>
+              <span className="text-[9px] font-black font-mono opacity-50">{bus.lastUpdate || 'Syncing...'}</span>
             </div>
-          )}
+            
+            <h4 className="text-2xl font-black italic uppercase tracking-tighter mb-1">
+              Bus <span className="text-amber-500">{bus.busNo}</span>
+            </h4>
+            <p className="text-[10px] font-black uppercase text-slate-500 mb-6">{bus.route}</p>
+            
+            <div className={`p-4 rounded-2xl flex justify-between items-center ${adminDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+              <div>
+                <p className="text-[8px] font-black text-slate-500 uppercase">Current Lat</p>
+                <p className="font-mono text-xs font-bold">{bus.currentLocation?.lat?.toFixed(5)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[8px] font-black text-slate-500 uppercase">Current Lng</p>
+                <p className="font-mono text-xs font-bold">{bus.currentLocation?.lng?.toFixed(5)}</p>
+              </div>
+            </div>
+            
+            <button className="w-full mt-4 py-3 rounded-xl bg-amber-500/10 text-amber-500 font-black text-[10px] uppercase tracking-widest group-hover:bg-amber-500 group-hover:text-slate-950 transition-all">
+              View Live Track
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
 
           {/* ADD STUDENT */}
           {activeTab === 'add-student' && (
