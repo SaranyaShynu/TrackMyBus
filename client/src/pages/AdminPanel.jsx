@@ -3,6 +3,8 @@ import {
   Users, Bus, ShieldCheck, UserPlus, Edit2, Trash2, LayoutDashboard,
   School, Moon, Sun, LogOut, ChevronRight, Hash, Navigation, Mail, Phone, Key, Search, Eye, X, GraduationCap
 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import axios from 'axios';
 
 export default function AdminPanel() {

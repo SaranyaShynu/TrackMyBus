@@ -34,10 +34,8 @@ exports.getBusStudents = async (req, res) => {
     try {
         const { busId } = req.params;
 
-        // Find parents who have children assigned to this bus
         const parents = await User.find({ "children.assignedBus": busId });
 
-        // Extract the specific children and their parent's contact info
         let studentList = [];
         parents.forEach(parent => {
             parent.children.forEach(child => {

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Student=require('../models/Student');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -114,21 +115,25 @@ exports.resetPassword = async (req, res) => {
 
 exports.getMe = async (req, res) => {
     try {
+        // 1. Get the User (Staff/Driver might have an assignedBus here)
         const user = await User.findById(req.user.id)
             .select('-password')
-            .populate({
-                path: 'assignedBus',
-                model: 'Bus'
-            })
-            .populate({
-                path: 'children',
-                populate: { path: 'assignedBus', model: 'Bus' }
-            });
+            .populate('assignedBus');
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        res.json(user);
+        // 2. Fetch children from the Student collection where parent matches this user
+        // This ensures we get the LATEST bus data for each child
+        const students = await Student.find({ parent: req.user.id })
+            .populate('assignedBus');
+
+        // 3. Merge them
+        const userData = user.toObject();
+        userData.children = students; 
+
+        res.json(userData);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: "Server error" });
     }
 };

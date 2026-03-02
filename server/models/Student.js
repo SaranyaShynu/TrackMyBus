@@ -21,7 +21,7 @@ const studentSchema=new mongoose.Schema({
         required:true
     },
     assignedBus:{
-        type:mongose.Schema.Types.ObjectId,
+        type:mongoose.Schema.Types.ObjectId,
         ref:'Bus',
         required:true
     },
