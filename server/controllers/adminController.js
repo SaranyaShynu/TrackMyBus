@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Bus = require('../models/Bus');
+const Student = require('../models/Student'); 
 const bcrypt = require('bcryptjs');
 
 // --- STUDENT MANAGEMENT ---
@@ -13,28 +14,28 @@ exports.addStudent = async (req, res) => {
             return res.status(404).json({ message: "Parent with this email not found." });
         }
 
-        // Check if student already exists in this parent's record
-        const exists = parent.children.find(c => c.rollNumber === rollNumber);
-        if (exists) return res.status(400).json({ message: "Student with this roll number already linked to this parent." });
-
-        const newStudent = {
+        const studentRecord = await Student.create({
             name,
             rollNumber,
             grade,
             bloodGroup,
-            assignedBus: assignedBus || null
-        };
+            assignedBus: assignedBus || null,
+            parentId: parent._id
+        });
 
-        parent.children.push(newStudent);
+        parent.children.push(studentRecord._id); 
         await parent.save();
 
         res.status(201).json({
             success: true,
-            message: `Student ${name} enrolled and linked to ${parent.name}`,
-            data: parent.children
+            message: `Student ${name} enrolled in system and linked to ${parent.name}`,
+            student: studentRecord
         });
 
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(400).json({ message: "A student with this roll number already exists." });
+        }
         console.error("Add Student Error:", error);
         res.status(500).json({ message: "Server error during student enrollment" });
     }

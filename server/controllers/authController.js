@@ -116,16 +116,20 @@ exports.resetPassword = async (req, res) => {
 exports.getMe = async (req, res) => {
     try {
         // 1. Get the User (Staff/Driver might have an assignedBus here)
-        const user = await User.findById(req.user.id)
+        const user = await User.findById({parentId:req.user.id})
             .select('-password')
             .populate('assignedBus');
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        // 2. Fetch children from the Student collection where parent matches this user
-        // This ensures we get the LATEST bus data for each child
-        const students = await Student.find({ parent: req.user.id })
-            .populate('assignedBus');
+        const students = await Student.find({ parentId: req.user.id })
+            .populate({
+                path: 'assignedBus',
+                populate: [
+                    { path: 'driver', select: 'name mobileNo' },
+                    { path: 'assistant', select: 'name mobileNo' }
+                ]
+            });
 
         // 3. Merge them
         const userData = user.toObject();

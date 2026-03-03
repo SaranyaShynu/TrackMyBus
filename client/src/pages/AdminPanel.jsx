@@ -135,7 +135,7 @@ export default function AdminPanel() {
   const handleUpdateStudent = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`http://localhost:5000/api/admin/parent/${editingStudent.parentId}/student/${editingStudent._id}`, editingStudent, config);
+      await axios.put(`http://localhost:5000/api/admin/student/${editingStudent._id}`, editingStudent, config);
       setShowModal(null);
       fetchData();
     } catch (err) { alert("Update failed."); }

@@ -46,12 +46,12 @@ export default function Dashboard() {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 
-                console.log("SERVER RESPONSE:", res.data); // DEBUG THIS IN CONSOLE
                 setUserData(res.data);
 
                 if (res.data.children && res.data.children.length > 0) {
-                    setActiveStudent(res.data.children);
-                    const bus = res.data.children.assignedBus;
+                    const defaultChild = res.data.children[0];
+                    setActiveStudent(defaultChild);
+                    const bus = defaultChild.assignedBus;
                     if (bus?.currentLocation) {
                         setLiveCoords([bus.currentLocation.lat, bus.currentLocation.lng]);
                     }
@@ -66,15 +66,17 @@ export default function Dashboard() {
     }, []);
 
     useEffect(() => {
-        if (!activeStudent?.assignedBus?._id) return;
-        const socket = io('http://localhost:5000');
-        socket.on('fleetUpdate', (data) => {
-            if (activeStudent.assignedBus._id === data.busId) {
-                setLiveCoords([data.lat, data.lng]);
-            }
-        });
-        return () => socket.disconnect();
-    }, [activeStudent]);
+       const busId = activeStudent?.assignedBus?._id;
+    if (!busId) return;
+
+    const socket = io('http://localhost:5000');
+    socket.on('fleetUpdate', (data) => {
+        if (busId === data.busId) {
+            setLiveCoords([data.lat, data.lng]);
+        }
+    });
+    return () => socket.disconnect();
+}, [activeStudent?.assignedBus?._id]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-slate-950">
@@ -100,15 +102,19 @@ export default function Dashboard() {
                         {userData?.children?.length > 0 ? (
                             userData.children.map((child) => (
                                 <button 
-                                    key={child._id} 
-                                    onClick={() => {
-                                        setActiveStudent(child);
-                                        if (child.assignedBus?.currentLocation) {
-                                            setLiveCoords([child.assignedBus.currentLocation.lat, child.assignedBus.currentLocation.lng]);
-                                        }
-                                    }}
-                                    className={`w-full p-5 rounded-[2rem] text-left transition-all border-2 flex items-center justify-between group ${activeStudent?._id === child._id ? 'border-amber-500 bg-amber-500/10' : 'border-transparent hover:bg-slate-500/5'}`}
-                                >
+    key={child._id} 
+    onClick={() => {
+        setActiveStudent(child); 
+        // Manually trigger a map jump when switching siblings
+        if (child.assignedBus?.currentLocation) {
+            setLiveCoords([
+                child.assignedBus.currentLocation.lat, 
+                child.assignedBus.currentLocation.lng
+            ]);
+        }
+    }}
+    className={`w-full p-5 rounded-[2rem] ...`}
+>
                                     <div>
                                         <p className="font-black text-sm uppercase italic tracking-tighter">{child.name}</p>
                                         <p className="text-[10px] opacity-50 font-bold">Grade {child.grade}</p>

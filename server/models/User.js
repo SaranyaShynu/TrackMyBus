@@ -13,11 +13,8 @@ const UserSchema = new mongoose.Schema({
     default: 'parent'
   },
   children: [{
-    name: { type: String, required: true },
-    rollNumber: { type: String },
-    grade: { type: String },
-    bloodGroup: { type: String },
-    assignedBus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' }
+   type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student'
   }], 
   assignedBus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' },
   resetToken: String,
