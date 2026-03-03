@@ -17,6 +17,6 @@ router.delete('/parent/:parentId/student/:studentId', protect, authorize(['admin
 router.delete('/user/:id', protect, authorize(['admin']), adminController.deleteUser);
 router.delete('/bus/:id', protect, authorize(['admin']),adminController.deleteBus);
 
-router.get('/bus-summary', protect, authorize(['admin']), busController.getBusSummary);
+// router.get('/bus-summary', protect, authorize(['admin']), busController.getBusSummary);
 
 module.exports = router;

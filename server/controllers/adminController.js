@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Bus = require('../models/Bus');
 const bcrypt = require('bcryptjs');
 
+// --- STUDENT MANAGEMENT ---
+
 exports.addStudent = async (req, res) => {
     try {
         const { name, rollNumber, grade, parentEmail, assignedBus, bloodGroup } = req.body;
@@ -11,17 +13,16 @@ exports.addStudent = async (req, res) => {
             return res.status(404).json({ message: "Parent with this email not found." });
         }
 
-        if (assignedBus) {
-            const busExists = await Bus.findById(assignedBus);
-            if (!busExists) return res.status(404).json({ message: "Bus not found." });
-        }
+        // Check if student already exists in this parent's record
+        const exists = parent.children.find(c => c.rollNumber === rollNumber);
+        if (exists) return res.status(400).json({ message: "Student with this roll number already linked to this parent." });
 
         const newStudent = {
             name,
             rollNumber,
             grade,
             bloodGroup,
-            assignedBus
+            assignedBus: assignedBus || null
         };
 
         parent.children.push(newStudent);
@@ -29,71 +30,13 @@ exports.addStudent = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: `Student ${name} enrolled and linked to ${parent.name}`
+            message: `Student ${name} enrolled and linked to ${parent.name}`,
+            data: parent.children
         });
 
     } catch (error) {
         console.error("Add Student Error:", error);
         res.status(500).json({ message: "Server error during student enrollment" });
-    }
-};
-
-exports.addBus = async (req, res) => {
-    try {
-        const { busNo, route, schoolBuilding } = req.body;
-        const newBus = new Bus({ busNo, route, schoolBuilding });
-        await newBus.save();
-        res.status(201).json({ success: true, bus: newBus });
-    } catch (err) {
-        res.status(400).json({ message: "Could not add bus. Ensure Bus No is unique." });
-    }
-};
-
-exports.getAllBuses = async (req, res) => {
-    try {
-        const buses = await Bus.find().populate('driver', 'name email').populate('assistant', 'name email');
-        res.json(buses);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching buses" });
-    }
-};
-
-exports.addStaff = async (req, res) => {
-    const { name, email, mobileNo, password, assignedBus, role } = req.body;
-    try {
-        const existingUser = await User.findOne({ email });
-        if (existingUser) return res.status(400).json({ message: "Email already registered" });
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const newDriver = new User({
-            name,
-            email,
-            password: hashedPassword,
-            mobileNo,
-            role: role || 'driver',
-            assignedBus: assignedBus || null
-        });
-
-        await newDriver.save();
-
-        res.status(201).json({
-            success: true,
-            message: `${newDriver.role} account created successfully`
-        });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Error creating staff account" });
-    }
-}
-
-exports.getAllUsers = async (req, res) => {
-    try {
-        const users = await User.find().select('-password').populate('assignedBus', 'busNo route schoolBuilding').populate({ path: 'children.assignedBus', model: 'Bus', select: 'busNo route schoolBuilding' });
-        res.json(users);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching users" });
     }
 };
 
@@ -116,142 +59,170 @@ exports.updateStudent = async (req, res) => {
             { new: true }
         ).populate('children.assignedBus');
 
-        if (!updatedParent) {
-            return res.status(404).json({ message: "Parent or Student not found" });
-        }
+        if (!updatedParent) return res.status(404).json({ message: "Parent or Student not found" });
 
-        res.status(200).json({
-            success: true,
-            message: "Student details updated!",
-            data: updatedParent.children
-        });
+        res.status(200).json({ success: true, message: "Student updated", data: updatedParent.children });
     } catch (error) {
-        console.error("Update Student Error:", error);
         res.status(500).json({ message: "Internal Server Error" });
-    }
-};
-
-exports.updateUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, email, mobileNo, assignedBus } = req.body;
-
-        const updatedUser = await User.findByIdAndUpdate(
-            id,
-            { name, email, mobileNo, assignedBus },
-            { new: true, runValidators: true }
-        );
-        if (!updatedUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        res.status(200).json({
-            success: true,
-            message: 'User updated Successfully',
-            data: updatedUser
-        })
-    } catch (err) {
-        res.status(500).json({ message: 'Server error during update' });
-    }
-}
-
-exports.updateBus = async (req, res) => {
-    try {
-        const { id } = req.params; // The Bus ID
-        const { busNo, route, schoolBuilding, driver, assistant } = req.body;
-
-        if (driver) {
-            const busyDriver = await Bus.findOne({ driver: driver, _id: { $ne: id } });
-            if (busyDriver) {
-                return res.status(400).json({ message: `This driver is already assigned to Bus ${busyDriver.busNo}` });
-            }
-        }
-
-        if (assistant) {
-            const busyAssistant = await Bus.findOne({ assistant: assistant, _id: { $ne: id } });
-            if (busyAssistant) {
-                return res.status(400).json({ message: `This assistant is already assigned to Bus ${busyAssistant.busNo}` });
-            }
-        }
-
-        const oldBus = await Bus.findById(id);
-        if (!oldBus) return res.status(404).json({ message: "Bus not found" });
-
-        const updatedBus = await Bus.findByIdAndUpdate(
-            id,
-            { busNo, route, schoolBuilding, driver: driver || null, assistant: assistant || null },
-            { new: true }
-        ).populate('driver assistant');
-
-        if (oldBus.driver) await User.findByIdAndUpdate(oldBus.driver, { assignedBus: null });
-        if (oldBus.assistant) await User.findByIdAndUpdate(oldBus.assistant, { assignedBus: null });
-
-        if (driver) await User.findByIdAndUpdate(driver, { assignedBus: id });
-        if (assistant) await User.findByIdAndUpdate(assistant, { assignedBus: id });
-
-        res.status(200).json({
-            success: true,
-            message: 'Bus and Staff assignments synchronized!',
-            data: updatedBus
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error during bus update' });
     }
 };
 
 exports.deleteStudent = async (req, res) => {
     try {
         const { parentId, studentId } = req.params;
-
-        // Use $pull to remove the specific student from the children array
         await User.findByIdAndUpdate(parentId, {
             $pull: { children: { _id: studentId } }
         });
-
-        res.json({ success: true, message: "Student removed successfully" });
+        res.json({ success: true, message: "Student removed" });
     } catch (err) {
         res.status(500).json({ message: "Error deleting student" });
     }
 };
 
-exports.deleteUser = async (req, res) => {
+// --- BUS & FLEET MANAGEMENT ---
+
+exports.addBus = async (req, res) => {
     try {
-        await User.findByIdAndDelete(req.params.id);
-        res.json({ message: "User removed successfully" });
+        const { busNo, route, capacity } = req.body;
+        const newBus = new Bus({ 
+            busNo, 
+            route, 
+            capacity: capacity || 40,
+            currentLocation: { lat: 11.7491, lng: 75.4890 } // Default location
+        });
+        await newBus.save();
+        res.status(201).json({ success: true, bus: newBus });
     } catch (err) {
-        res.status(500).json({ message: "Error deleting user" });
+        res.status(400).json({ message: "Could not add bus. Ensure Bus No is unique." });
+    }
+};
+
+exports.getAllBuses = async (req, res) => {
+    try {
+        const buses = await Bus.find()
+            .populate('driver', 'name email mobileNo')
+            .populate('assistant', 'name email mobileNo');
+        res.json(buses);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching buses" });
+    }
+};
+
+exports.updateBus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { busNo, route, capacity, driver, assistant } = req.body;
+
+        // Check if driver/assistant are already busy elsewhere
+        if (driver) {
+            const busy = await Bus.findOne({ driver, _id: { $ne: id } });
+            if (busy) return res.status(400).json({ message: `Driver already assigned to Bus ${busy.busNo}` });
+        }
+
+        const oldBus = await Bus.findById(id);
+        if (!oldBus) return res.status(404).json({ message: "Bus not found" });
+
+        // Update Bus record
+        const updatedBus = await Bus.findByIdAndUpdate(
+            id,
+            { busNo, route, capacity, driver: driver || null, assistant: assistant || null },
+            { new: true }
+        ).populate('driver assistant');
+
+        // Sync Staff records: Remove bus link from old staff
+        if (oldBus.driver) await User.findByIdAndUpdate(oldBus.driver, { assignedBus: null });
+        if (oldBus.assistant) await User.findByIdAndUpdate(oldBus.assistant, { assignedBus: null });
+
+        // Sync Staff records: Add bus link to new staff
+        if (driver) await User.findByIdAndUpdate(driver, { assignedBus: id });
+        if (assistant) await User.findByIdAndUpdate(assistant, { assignedBus: id });
+
+        res.status(200).json({ success: true, data: updatedBus });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error during bus update' });
     }
 };
 
 exports.deleteBus = async (req, res) => {
     try {
         const busId = req.params.id;
-
-        await User.updateMany(
-            { assignedBus: busId },
-            { $set: { assignedBus: null } }
-        );
-
+        // Unlink bus from all staff and student sub-documents
+        await User.updateMany({ assignedBus: busId }, { $set: { assignedBus: null } });
         await User.updateMany(
             { "children.assignedBus": busId },
             { $set: { "children.$[elem].assignedBus": null } },
             { arrayFilters: [{ "elem.assignedBus": busId }] }
         );
 
-        const deletedBus = await Bus.findByIdAndDelete(busId);
+        await Bus.findByIdAndDelete(busId);
+        res.json({ success: true, message: "Bus deleted and links cleared" });
+    } catch (err) {
+        res.status(500).json({ message: "Server error" });
+    }
+};
 
-        if (!deletedBus) {
-            return res.status(404).json({ success: false, message: "Bus not found" });
-        }
+// --- USER & STAFF MANAGEMENT ---
 
-        res.status(200).json({
-            success: true,
-            message: "Bus deleted and all staff/student links cleared successfully"
+exports.addStaff = async (req, res) => {
+    const { name, email, mobileNo, password, role } = req.body;
+    try {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) return res.status(400).json({ message: "Email already exists" });
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newStaff = new User({
+            name, email, mobileNo,
+            password: hashedPassword,
+            role: role || 'driver'
         });
 
+        await newStaff.save();
+        res.status(201).json({ success: true, message: `${newStaff.role} created` });
     } catch (err) {
-        console.error("DELETE BUS ERROR:", err);
-        res.status(500).json({ success: false, message: "Server error while removing bus" });
+        res.status(500).json({ message: "Error creating account" });
     }
-}
+};
+
+exports.getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find()
+            .select('-password')
+            .populate('assignedBus', 'busNo route')
+            .populate({ path: 'children.assignedBus', model: 'Bus', select: 'busNo route' })
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching users" });
+    }
+};
+
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, mobileNo, role } = req.body;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            { name, email, mobileNo, role },
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        res.status(200).json({ success: true, data: updatedUser });
+    } catch (err) {
+        res.status(500).json({ message: 'Update failed' });
+    }
+};
+
+exports.deleteUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (user.role === 'driver' || user.role === 'assistant') {
+            await Bus.updateMany({ $or: [{ driver: user._id }, { assistant: user._id }] }, { $set: { driver: null, assistant: null } });
+        }
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: "User deleted" });
+    } catch (err) {
+        res.status(500).json({ message: "Delete failed" });
+    }
+};

@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: function () { return !this.googleId } },
   googleId: { type: String },
   mobileNo: { type: String, required: false },
+  address:{type:String},
   role: {
     type: String,
     enum: ['parent', 'driver', 'assistant', 'admin'],
@@ -17,7 +18,7 @@ const UserSchema = new mongoose.Schema({
     grade: { type: String },
     bloodGroup: { type: String },
     assignedBus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' }
-  }],
+  }], 
   assignedBus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' },
   resetToken: String,
   resetTokenExpiry: Date

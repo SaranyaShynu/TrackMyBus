@@ -11,13 +11,14 @@ exports.getProfile = async (req, res) => {
 };
 
 exports.updateSettings = async (req, res) => {
-    const { name, mobileNo, password } = req.body;
+    const { name, mobileNo, address, password } = req.body;
     try {
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: "User not found" });
 
         if (name) user.name = name;
         if (mobileNo) user.mobileNo = mobileNo;
+        if (address) user.address = address;
         if (password) {
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(password, salt);
