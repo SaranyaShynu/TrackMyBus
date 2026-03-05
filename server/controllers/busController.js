@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Bus = require('../models/Bus');
+const Student = require('../models/Student');
 
 exports.getBusSummary = async (req, res) => {
     try {
@@ -7,8 +8,7 @@ exports.getBusSummary = async (req, res) => {
         const buses = await Bus.find().populate('driver assistant', 'name');
 
         const summary = await Promise.all(buses.map(async (bus) => {
-            const studentCount = await User.countDocuments({
-                role: 'student',
+            const studentCount = await Student.countDocuments({
                 assignedBus: bus._id
             });
 
@@ -20,7 +20,7 @@ exports.getBusSummary = async (req, res) => {
                 currentStudents: studentCount,
                 driverName: bus.driver?.name || 'Unassigned',
                 assistantName: bus.assistant?.name || 'Unassigned',
-                availableSeats: bus.capacity - studentCount
+                availableSeats: Math.max(0, bus.capacity - studentCount)
             };
         }));
 
@@ -34,21 +34,17 @@ exports.getBusStudents = async (req, res) => {
     try {
         const { busId } = req.params;
 
-        const parents = await User.find({ "children.assignedBus": busId });
+        const students = await Student.find({ assignedBus: busId })
+            .populate('parentId', 'name mobileNo'); 
 
-        let studentList = [];
-        parents.forEach(parent => {
-            parent.children.forEach(child => {
-                if (child.assignedBus?.toString() === busId) {
-                    studentList.push({
-                        name: child.name,
-                        grade: child.grade,
-                        parentName: parent.name,
-                        parentPhone: parent.mobileNo
-                    });
-                }
-            });
-        });
+        const studentList = students.map(s => ({
+            _id: s._id,
+            name: s.name,
+            grade: s.grade,
+            rollNumber: s.rollNumber,
+            parentName: s.parentId?.name || 'Unknown',
+            parentPhone: s.parentId?.mobileNo || 'N/A'
+        }));
 
         res.status(200).json(studentList);
     } catch (err) {

@@ -18,52 +18,54 @@ exports.addStudent = async (req, res) => {
             name,
             rollNumber,
             grade,
-            bloodGroup,
+            medicalInfo: { bloodGroup }, // Nesting to match schema
             assignedBus: assignedBus || null,
             parentId: parent._id
         });
 
+        // Push ONLY the ID to the parent's children array
         parent.children.push(studentRecord._id); 
         await parent.save();
 
         res.status(201).json({
             success: true,
-            message: `Student ${name} enrolled in system and linked to ${parent.name}`,
+            message: `Student ${name} enrolled and linked to ${parent.name}`,
             student: studentRecord
         });
-
     } catch (error) {
-        if (error.code === 11000) {
-            return res.status(400).json({ message: "A student with this roll number already exists." });
-        }
-        console.error("Add Student Error:", error);
-        res.status(500).json({ message: "Server error during student enrollment" });
+        if (error.code === 11000) return res.status(400).json({ message: "Roll number already exists." });
+        res.status(500).json({ message: "Server error during enrollment" });
     }
 };
 
 exports.updateStudent = async (req, res) => {
     try {
-        const { parentId, studentId } = req.params;
+        const { parentId, studentId } = req.params; 
         const { name, grade, rollNumber, bloodGroup, assignedBus } = req.body;
 
-        const updatedParent = await User.findOneAndUpdate(
-            { _id: parentId, "children._id": studentId },
+        const updatedStudent = await Student.findByIdAndUpdate(
+            studentId,
             {
-                $set: {
-                    "children.$.name": name,
-                    "children.$.grade": grade,
-                    "children.$.rollNumber": rollNumber,
-                    "children.$.bloodGroup": bloodGroup,
-                    "children.$.assignedBus": assignedBus || null,
-                }
+                name,
+                grade,
+                rollNumber,
+                medicalInfo: { bloodGroup }, 
+                assignedBus: assignedBus || null
             },
             { new: true }
-        ).populate('children.assignedBus');
+        ).populate('assignedBus');
 
-        if (!updatedParent) return res.status(404).json({ message: "Parent or Student not found" });
+        if (!updatedStudent) {
+            return res.status(404).json({ message: "Student record not found" });
+        }
 
-        res.status(200).json({ success: true, message: "Student updated", data: updatedParent.children });
+        res.status(200).json({ 
+            success: true, 
+            message: "Student updated successfully", 
+            data: updatedStudent 
+        });
     } catch (error) {
+        console.error("Update Error:", error);
         res.status(500).json({ message: "Internal Server Error" });
     }
 };
@@ -71,10 +73,16 @@ exports.updateStudent = async (req, res) => {
 exports.deleteStudent = async (req, res) => {
     try {
         const { parentId, studentId } = req.params;
+
+        // 1. Delete the actual student document
+        await Student.findByIdAndDelete(studentId);
+
+        // 2. Pull the reference out of the Parent's array
         await User.findByIdAndUpdate(parentId, {
-            $pull: { children: { _id: studentId } }
+            $pull: { children: studentId } // Just the ID, not an object
         });
-        res.json({ success: true, message: "Student removed" });
+
+        res.json({ success: true, message: "Student completely removed from system" });
     } catch (err) {
         res.status(500).json({ message: "Error deleting student" });
     }
@@ -190,8 +198,16 @@ exports.getAllUsers = async (req, res) => {
     try {
         const users = await User.find()
             .select('-password')
+            .populate({
+                path: 'children',
+                model: 'Student',
+                populate: {
+                    path: 'assignedBus',
+                    model: 'Bus',
+                    select: 'busNo route'
+                }
+            })
             .populate('assignedBus', 'busNo route')
-            .populate({ path: 'children.assignedBus', model: 'Bus', select: 'busNo route' })
         res.json(users);
     } catch (err) {
         res.status(500).json({ message: "Error fetching users" });

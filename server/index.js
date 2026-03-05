@@ -24,6 +24,7 @@ app.use(cors());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/bus' , require('./routes/busRoutes'));
 
 // --- REAL-TIME FLEET LOGIC ---
 const busStatus = {};

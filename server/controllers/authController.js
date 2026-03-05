@@ -115,29 +115,32 @@ exports.resetPassword = async (req, res) => {
 
 exports.getMe = async (req, res) => {
     try {
-        // 1. Get the User (Staff/Driver might have an assignedBus here)
-        const user = await User.findById({parentId:req.user.id})
-            .select('-password')
-            .populate('assignedBus');
+        // 1. Get User - pass the ID directly as a string
+        const user = await User.findById(req.user.id).select('-password').populate('assignedBus');
+        
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
 
-        if (!user) return res.status(404).json({ message: "User not found" });
-
-        const students = await Student.find({ parentId: req.user.id })
-            .populate({
-                path: 'assignedBus',
-                populate: [
-                    { path: 'driver', select: 'name mobileNo' },
-                    { path: 'assistant', select: 'name mobileNo' }
-                ]
-            });
-
-        // 3. Merge them
         const userData = user.toObject();
-        userData.children = students; 
+        if(user.role === 'parent')
+        {
+            const students = await Student.find({ parentId: req.user.id })
+                .populate({
+                    path: 'assignedBus',
+                    select: 'busNo route currentLocation driver assistant',
+                    populate: [
+                        { path: 'driver', select: 'name mobileNo' },
+                        { path: 'assistant', select: 'name mobileNo' }
+                    ]
+                });
+            userData.children = students || [];
+        }
 
         res.json(userData);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error" });
+        console.error("Profile Fetch Error:", err);
+        // Sending the error message back helps you debug in the browser network tab
+        res.status(500).json({ message: "Internal Server Error", error: err.message });
     }
 };

@@ -135,12 +135,32 @@ export default function AdminPanel() {
   const handleUpdateStudent = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`http://localhost:5000/api/admin/student/${editingStudent._id}`, editingStudent, config);
-      setShowModal(null);
-      fetchData();
-    } catch (err) { alert("Update failed."); }
-  };
+        // Prepare the payload to match the Backend Schema
+        const payload = {
+            name: editingStudent.name,
+            grade: editingStudent.grade,
+            rollNumber: editingStudent.rollNumber,
+            bloodGroup: editingStudent.bloodGroup, // The backend handles the nesting
+            // Extract only the ID string for the bus
+            assignedBus: typeof editingStudent.assignedBus === 'object' 
+                ? editingStudent.assignedBus?._id 
+                : editingStudent.assignedBus
+        };
 
+        await axios.put(
+            `http://localhost:5000/api/admin/parent/${editingStudent.parentId}/student/${editingStudent._id}`, 
+            payload, 
+            config
+        );
+        
+        setShowModal(null);
+        fetchData(); // This refreshes the directory and Parent View
+        alert("Student updated successfully!");
+    } catch (err) {
+        console.error("Update Error:", err);
+        alert(err.response?.data?.message || "Update failed.");
+    }
+};
   const handleUpdateUser = async (e) => {
     e.preventDefault();
     try {
@@ -168,12 +188,20 @@ export default function AdminPanel() {
   const openStudentEdit = (pId, s) => { setEditingStudent({ ...s, parentId: pId }); setShowModal('student-edit'); };
 
   // --- DATA FILTERING ---
-  const allStudents = users.filter(u => u.role === 'parent').flatMap(p => 
-    (p.children || []).map(c => ({ ...c, parentName: p.name, parentId: p._id }))
-  ).filter(s => s.name.toLowerCase().includes(studentSearchQuery.toLowerCase()));
+  const allStudents = users
+  .filter(u => u.role === 'parent')
+  .flatMap(p => (p.children || []).map(c => ({ ...c, name:c.name || 'Loading...', parentName: p.name, parentId: p._id })))
+  // Add (s.name || '') to prevent the crash
+  .filter(s => (s.name || '').toLowerCase().includes(studentSearchQuery.toLowerCase()));
 
-  const filteredBuses = buses.filter(b => b.busNo.toLowerCase().includes(busSearchQuery.toLowerCase()));
-  const filteredUsers = users.filter(u => u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || u.email.toLowerCase().includes(userSearchQuery.toLowerCase()));
+const filteredBuses = buses.filter(b => 
+  (b.busNo || '').toLowerCase().includes(busSearchQuery.toLowerCase())
+);
+
+const filteredUsers = users.filter(u => 
+  (u.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+  (u.email || '').toLowerCase().includes(userSearchQuery.toLowerCase())
+);
   const drivers = users.filter(u => u.role === 'driver' && (!u.assignedBus || (editingBus && u.assignedBus === editingBus.id)));
   const assistants = users.filter(u => u.role === 'assistant' && (!u.assignedBus || (editingBus && u.assignedBus === editingBus.id)));
 
@@ -514,8 +542,8 @@ export default function AdminPanel() {
               <button onClick={() => setShowModal(null)} className="p-3 hover:bg-red-500/10 hover:text-red-500 rounded-full transition-all"><X size={24} /></button>
             </div>
             <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-              {allStudents.filter(s => s.assignedBus?._id === selectedBus._id || s.assignedBus === selectedBus._id).map((st, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-500/5 border border-slate-500/10">
+              {allStudents.filter(s => s.assignedBus?._id === selectedBus._id || s.assignedBus === selectedBus._id).map((st) => (
+                <div key={st._id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-500/5 border border-slate-500/10">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-black">{idx + 1}</div>
                     <div><p className="font-bold">{st.name}</p><p className="text-[10px] opacity-50 font-black uppercase">{st.rollNumber} • {st.grade}</p></div>
@@ -546,30 +574,65 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* 3. STUDENT EDIT MODAL */}
-      {showModal === 'student-edit' && editingStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-md p-8 rounded-[2.5rem] border ${card}`}>
-            <h2 className="text-xl font-black mb-6 uppercase italic tracking-tighter">Edit <span className="text-amber-500">Student</span></h2>
-            <form onSubmit={handleUpdateStudent} className="space-y-5">
-              <InputGroup label="Student Name" icon={Users} value={editingStudent.name} onChange={e => setEditingStudent({ ...editingStudent, name: e.target.value })} dark={adminDark} />
-              <InputGroup label="Grade" icon={Navigation} value={editingStudent.grade} onChange={e => setEditingStudent({ ...editingStudent, grade: e.target.value })} dark={adminDark} />
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Bus Assignment</label>
-                <select value={editingStudent.assignedBus?._id || editingStudent.assignedBus || ''} onChange={e => setEditingStudent({ ...editingStudent, assignedBus: e.target.value })} className={`w-full p-5 rounded-2xl border-2 font-bold outline-none ${input}`}>
-                  <option value="">-- No Bus --</option>
-                  {buses.map(b => <option key={b._id} value={b._id}>{b.busNo} — {b.route}</option>)}
-                </select>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="submit" className="flex-1 bg-amber-500 text-slate-950 py-4 rounded-xl font-black uppercase text-[10px]">Update</button>
-                <button type="button" onClick={() => setShowModal(null)} className="px-6 py-4 rounded-xl font-black uppercase text-[10px] opacity-50">Close</button>
-              </div>
-            </form>
-          </div>
+    {/* 3. STUDENT EDIT MODAL */}
+{showModal === 'student-edit' && editingStudent && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div className={`w-full max-w-md p-8 rounded-[2.5rem] border ${card}`}>
+      <h2 className="text-xl font-black mb-6 uppercase italic tracking-tighter">
+        Edit <span className="text-amber-500">Student</span>
+      </h2>
+      <form onSubmit={handleUpdateStudent} className="space-y-5">
+        <InputGroup 
+          label="Student Name" 
+          icon={Users} 
+          value={editingStudent.name || ''} 
+          onChange={e => setEditingStudent({ ...editingStudent, name: e.target.value })} 
+          dark={adminDark} 
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <InputGroup 
+            label="Grade" 
+            icon={Navigation} 
+            value={editingStudent.grade || ''} 
+            onChange={e => setEditingStudent({ ...editingStudent, grade: e.target.value })} 
+            dark={adminDark} 
+          />
+          <InputGroup 
+            label="Blood Group" 
+            icon={ShieldCheck} 
+            value={editingStudent.bloodGroup || editingStudent.medicalInfo?.bloodGroup || ''} 
+            onChange={e => setEditingStudent({ ...editingStudent, bloodGroup: e.target.value })} 
+            dark={adminDark} 
+          />
         </div>
-      )}
+        
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Bus Assignment</label>
+          <select 
+            // This line ensures it stays synced even if assignedBus is an object or ID
+            value={editingStudent.assignedBus?._id || editingStudent.assignedBus || ''} 
+            onChange={e => setEditingStudent({ ...editingStudent, assignedBus: e.target.value })} 
+            className={`w-full p-5 rounded-2xl border-2 font-bold outline-none ${input}`}
+          >
+            <option value="">-- No Bus --</option>
+            {buses.map(b => (
+              <option key={b._id} value={b._id}>{b.busNo} — {b.route}</option>
+            ))}
+          </select>
+        </div>
 
+        <div className="flex gap-3 pt-4">
+          <button type="submit" className="flex-1 bg-amber-500 text-slate-950 py-4 rounded-xl font-black uppercase text-[10px]">
+            Save Changes
+          </button>
+          <button type="button" onClick={() => setShowModal(null)} className="px-6 py-4 rounded-xl font-black uppercase text-[10px] opacity-50">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       {/* 4. BUS EDIT MODAL */}
       {showModal === 'bus' && editingBus && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">

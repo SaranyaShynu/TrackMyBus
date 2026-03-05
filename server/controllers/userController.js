@@ -1,12 +1,35 @@
 const User = require('../models/User');
+const Bus = require('../models/Bus');
 const bcrypt = require('bcryptjs');
+
+const Student = require('../models/Student'); // Import the Student model
 
 exports.getProfile = async (req, res) => {
     try {
-        // req.user comes from your protect middleware
-        res.json({ success: true, user: req.user });
+        // 1. req.user is already populated by your 'protect' middleware
+        const parentId = req.user._id;
+
+        // 2. Find all students belonging to this parent
+        // We 'populate' the assignedBus, and then deep-populate the driver/assistant
+        const children = await Student.find({ parentId })
+            .populate({
+                path: 'assignedBus',
+                model: 'Bus',
+                populate: [
+                    { path: 'driver', model: 'User', select: 'name mobileNo' },
+                    { path: 'assistant', model: 'User', select: 'name mobileNo' }
+                ]
+            });
+
+        // 3. Construct the response to match what your React Dashboard expects
+        res.json({
+            ...req.user._doc, // Parent's name, email, etc.
+            children: children // This now contains full names, grades, and bus details
+        });
+
     } catch (err) {
-        res.status(500).json({ message: "Server Error fetching profile" });
+        console.error("Profile Fetch Error:", err);
+        res.status(500).json({ message: "Server Error" });
     }
 };
 
