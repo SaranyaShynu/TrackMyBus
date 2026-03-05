@@ -8,6 +8,8 @@ const authRoutes = require('./routes/auth');
 const app = express();
 const server = http.createServer(app);
 
+const Student = require('./models/Student');
+
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
@@ -26,52 +28,102 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/bus' , require('./routes/busRoutes'));
 
-// --- REAL-TIME FLEET LOGIC ---
 const busStatus = {};
+const busStudentsCache = {};
+
+
 
 io.on('connection', (socket) => {
   console.log('📡 New Connection:', socket.id);
 
-  socket.on('updateLocation', (data) => {
+  socket.on('joinBusRoom', (busId) => {
+    socket.join(busId);
+  });
+
+  socket.on('joinAdminRoom', () => {
+    socket.join('admin-control-center');
+  });
+
+  socket.on('updateLocation', async (data) => {
     const { busId, lat, lng, speed, busNo } = data;
 
-    // 1. Broadcast movement to Admin & Parents
-    io.emit('fleetUpdate', data);
+    io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
 
-    // 2. Traffic Detection Logic
     if (!busStatus[busId]) busStatus[busId] = { idleCount: 0 };
-    
-    if (speed < 5) { // If bus moves slower than 5km/h
+    if (speed < 5) { 
       busStatus[busId].idleCount++;
-      
-      // If idle for 6 consecutive updates (approx 3 mins if updates are every 30s)
       if (busStatus[busId].idleCount === 6) {
-        io.emit('notification', {
+        io.to(busId).to('admin-control-center').emit('notification', {
           type: 'TRAFFIC',
-          busNo: busNo,
-          message: `Bus ${busNo} is experiencing heavy traffic/delay.`
+          busNo,
+          message: `Bus ${busNo} is stuck in traffic.`,
+          time: new Date().toLocaleTimeString()
         });
       }
     } else {
-      busStatus[busId].idleCount = 0; // Reset if bus speeds up
+      busStatus[busId].idleCount = 0; 
     }
 
-    // 3. School Reach Detection (Geofencing)
     const schoolCoords = { lat: 11.7491, lng: 75.4890 };
-    const distanceToSchool = calculateDistance(lat, lng, schoolCoords.lat, schoolCoords.lng);
+    const distToSchool = calculateDistance(lat, lng, schoolCoords.lat, schoolCoords.lng);
+    if (distToSchool < 0.2) { // Within 200 meters
+      io.to(busId).to('admin-control-center').emit('notification', {
+        type: 'ARRIVAL_SCHOOL',
+        busNo,
+        message: `Bus ${busNo} arrived at School.`,
+        time: new Date().toLocaleTimeString()
+      });
+    }
 
-    if (distanceToSchool < 0.1) {
-      io.emit('notification', {
-        type: 'ARRIVAL',
-        busNo: busNo,
-        message: `Bus ${busNo} has reached the school campus.`
+    if (!busStudentsCache[busId]) {
+      try {
+        busStudentsCache[busId] = await Student.find({ assignedBus: busId });
+      } catch (err) {
+        console.error("Error fetching students for proximity check:", err);
+      }
+    }
+
+    if (busStudentsCache[busId]) {
+      busStudentsCache[busId].forEach(student => {
+
+        if (student.lat && student.lng) {
+          const distToHome = calculateDistance(lat, lng, student.lat, student.lng);
+          
+          if (distToHome < 0.5 && !student.notifiedNearHome) {
+             io.to(busId).emit('notification', {
+               type: 'NEAR_HOME',
+               studentId: student._id,
+               message: `The bus is nearly at ${student.name}'s stop! Please get ready.`,
+               time: new Date().toLocaleTimeString()
+             });
+             student.notifiedNearHome = true; 
+          } 
+          else if (distToHome > 1.0) {
+            student.notifiedNearHome = false;
+          }
+        }
       });
     }
   });
 
-  socket.on('disconnect', () => console.log('❌ Disconnected'));
+  socket.on('sendDelayAlert', (data) => {
+    const { busId, busNo, message, driverName } = data;
+    const alert = {
+      type: 'MANUAL_DELAY',
+      busNo,
+      driverName,
+      message,
+      time: new Date().toLocaleTimeString()
+    };
+    io.to(busId).to('admin-control-center').emit('notification', alert);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Disconnected');
+  });
 });
 
+// Haversine Formula for accurate distance in KM
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * Math.PI / 180;
