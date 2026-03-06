@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Menu, X, MapPin, Bus, LogOut, Navigation, 
-  AlertCircle, Check, Users, Clock, Sun, Moon, Search 
+  AlertCircle, Check, Users, Clock, Sun, Moon, Search, Siren, Radio
 } from 'lucide-react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import Footer from '../components/Footer';
 
 export default function DriverPanel() {
@@ -14,8 +15,20 @@ export default function DriverPanel() {
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-
+  const [currentCoords, setCurrentCoords] = useState(null);
+  
+  const socketRef = useRef(null);
+  const watchIdRef = useRef(null);
   const token = localStorage.getItem('token');
+
+  // Initialize Socket Connection
+  useEffect(() => {
+    socketRef.current = io('http://localhost:5000');
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -58,6 +71,68 @@ export default function DriverPanel() {
     if (token) fetchProfile();
   }, [token]);
 
+  // GPS BROADCAST LOGIC
+  const startJourney = () => {
+    if (!navigator.geolocation) {
+      return alert("Geolocation not supported by this browser.");
+    }
+
+    setIsBroadcasting(true);
+    
+    // Broadcast "Journey Started" to Parents
+    sendNotification('START', "The bus has started the journey!");
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setCurrentCoords({ lat: latitude, lng: longitude });
+
+        // Emit to Socket for Real-Time Parent View
+        socketRef.current.emit('updateLocation', {
+          busId: driverData.assignedBus._id,
+          lat: latitude,
+          lng: longitude,
+          status: 'moving'
+        });
+      },
+      (error) => console.error("GPS Error:", error),
+      { enableHighAccuracy: true, distanceFilter: 10 }
+    );
+  };
+
+  const stopJourney = () => {
+    if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+    setIsBroadcasting(false);
+    sendNotification('END', "The bus has reached the destination.");
+  };
+
+  const sendNotification = async (type, customMessage) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      // We send the request to a unified broadcast endpoint
+      // The backend will handle routing this to Parents and/or Admins based on the 'type'
+      await axios.post('http://localhost:5000/api/notifications/broadcast', {
+        busId: driverData.assignedBus._id,
+        driverName: driverData.name,
+        message: customMessage,
+        type: type, // 'START', 'DELAY', 'EMERGENCY', 'END'
+        includeAdmin: ['DELAY', 'EMERGENCY'].includes(type) // Admin only cares about these two
+      }, config);
+
+      // UI Feedback for the Driver
+      if (type === 'EMERGENCY') {
+        alert("🚨 EMERGENCY ALERT SENT TO ADMIN AND PARENTS!");
+      } else if (type === 'DELAY') {
+        alert("Traffic delay reported to Admin and Parents.");
+      }
+      
+    } catch (err) {
+      console.error("Broadcast failed:", err);
+      alert("Failed to send alert. Check connection.");
+    }
+  };
+
   const toggleStatus = (id) => {
     setStudents(prev => prev.map(s => {
       if (s._id !== id) return s;
@@ -96,6 +171,14 @@ export default function DriverPanel() {
             <span className="font-black uppercase tracking-tighter text-lg italic">Driver<span className="text-amber-500">Portal</span></span>
           </div>
         </div>
+        
+        {isBroadcasting && (
+          <div className="hidden md:flex items-center gap-2 bg-red-500/10 text-red-500 px-4 py-1.5 rounded-full border border-red-500/20">
+            <Radio size={14} className="animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Live Broadcasting</span>
+          </div>
+        )}
+
         <button onClick={() => setDriverDark(!driverDark)} className="p-2 opacity-50 hover:opacity-100">
           {driverDark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
@@ -134,9 +217,12 @@ export default function DriverPanel() {
             </p>
           </div>
 
-          <button onClick={() => setIsBroadcasting(!isBroadcasting)} className={`px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl ${isBroadcasting ? 'bg-red-500 text-white animate-pulse shadow-red-500/40' : 'bg-amber-500 text-slate-950 hover:scale-105 shadow-amber-500/20'}`}>
+          <button 
+            onClick={isBroadcasting ? stopJourney : startJourney} 
+            className={`px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl ${isBroadcasting ? 'bg-red-600 text-white shadow-red-500/40' : 'bg-amber-500 text-slate-950 hover:scale-105 shadow-amber-500/20'}`}
+          >
             {isBroadcasting ? <X size={20} /> : <Navigation size={20} />}
-            {isBroadcasting ? 'Stop Journey' : 'Start Journey'}
+            {isBroadcasting ? 'End Trip' : 'Start Journey'}
           </button>
         </div>
 
@@ -165,9 +251,6 @@ export default function DriverPanel() {
                     <span className="bg-red-500/20 text-red-500 px-3 py-1 rounded-full text-[9px] font-black uppercase border border-red-500/30">
                       {students.filter(s => s.status === 'absent').length} Absent
                     </span>
-                    <span className="bg-slate-500/20 text-slate-400 px-3 py-1 rounded-full text-[9px] font-black uppercase border border-slate-500/30">
-                      {students.filter(s => s.status === 'pending').length} Pending
-                    </span>
                   </div>
                 </div>
 
@@ -194,16 +277,6 @@ export default function DriverPanel() {
                             <MapPin size={12}/> Parent: {student.parentName || 'N/A'}
                           </p>
                         </div>
-
-                        <div className="mt-3">
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase border ${
-                            student.status === 'present' ? 'bg-green-500/20 border-green-500 text-green-500' :
-                            student.status === 'absent' ? 'bg-red-500/20 border-red-500 text-red-500' :
-                            'bg-slate-500/20 border-slate-500 text-slate-500'
-                          }`}>
-                            {student.status || 'pending'}
-                          </span>
-                        </div>
                       </div>
 
                       <button 
@@ -220,11 +293,6 @@ export default function DriverPanel() {
                       </button>
                     </div>
                   ))}
-                  {filteredStudents.length === 0 && (
-                    <div className="p-10 text-center text-slate-500 font-bold uppercase text-xs tracking-widest">
-                      No matching students found
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
@@ -237,12 +305,30 @@ export default function DriverPanel() {
 
           {/* SIDEBAR TOOLS */}
           <div className="space-y-6">
+            {/* Traffic Delay Tool */}
             <div className="bg-amber-400 p-8 rounded-[2.5rem] shadow-xl text-slate-900">
               <AlertCircle size={32} className="mb-4" />
               <h3 className="text-2xl font-black italic mb-2 tracking-tighter uppercase leading-none">Traffic Alert?</h3>
               <p className="font-bold opacity-80 mb-6 leading-tight text-sm text-slate-800">Inform parents immediately if you are stuck in traffic or have a breakdown.</p>
-              <button className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-transform">Broadcast Delay</button>
+              <button 
+                onClick={() => sendNotification('DELAY', "The bus is experiencing a 15-minute traffic delay.")}
+                className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-transform"
+              >
+                Broadcast Delay
+              </button>
             </div>
+
+            {/* Emergency SOS Button */}
+            <button 
+              onClick={() => sendNotification('EMERGENCY', "EMERGENCY: The bus has stopped due to an issue. Please wait for further updates.")}
+              className="w-full bg-red-600 p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col items-center gap-4 hover:bg-red-700 transition-colors"
+            >
+              <Siren size={40} className="animate-bounce" />
+              <div className="text-center">
+                <h3 className="text-xl font-black uppercase italic tracking-tighter">Emergency SOS</h3>
+                <p className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Alerts Admin & Parents</p>
+              </div>
+            </button>
             
             <div className={`p-6 rounded-[2rem] border ${cardClass} flex items-center gap-4`}>
               <div className="bg-amber-500/10 p-3 rounded-xl"><Clock className="text-amber-500" /></div>

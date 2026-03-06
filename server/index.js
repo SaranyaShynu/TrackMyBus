@@ -13,10 +13,13 @@ const Student = require('./models/Student');
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
-    origin: "5173",
-    methods: ["GET", "POST"]
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials:true
   }
 });
+
+app.set('socketio',io);
 
 // Middleware
 app.use(express.json());
@@ -27,26 +30,26 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/bus' , require('./routes/busRoutes'));
+app.use('/api/notifications' , require('./routes/notificationRoutes'));
 
 const busStatus = {};
 const busStudentsCache = {};
-
-
 
 io.on('connection', (socket) => {
   console.log('📡 New Connection:', socket.id);
 
   socket.on('joinBusRoom', (busId) => {
     socket.join(busId);
+    console.log(`User joined bus room: ${busId}`);
   });
 
   socket.on('joinAdminRoom', () => {
     socket.join('admin-control-center');
+    console.log(`Admin joined control center`);
   });
 
   socket.on('updateLocation', async (data) => {
     const { busId, lat, lng, speed, busNo } = data;
-
     io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
 
     if (!busStatus[busId]) busStatus[busId] = { idleCount: 0 };
