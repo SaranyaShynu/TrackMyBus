@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Bus, User, Users, Clock, ChevronRight, LayoutDashboard, MapPin, AlertTriangle, Navigation } from 'lucide-react';
+import { Bus, User, Users, Clock, ChevronRight, LayoutDashboard, MapPin, AlertTriangle, Navigation, AlertCircle } from 'lucide-react';
+import { requestForToken, onMessageListener } from '../utils/firebase';
+import toast, { Toaster } from 'react-hot-toast';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import Navbar from '../components/Navbar';
@@ -41,7 +43,6 @@ export default function Dashboard() {
     const [history, setHistory] = useState([]);
     const { isDarkMode } = useTheme();
 
-    // Calculate Distance (Haversine Formula)
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
         if (!lat1 || !lon1 || !lat2 || !lon2) return null;
         const R = 6371; 
@@ -62,6 +63,8 @@ export default function Dashboard() {
         const fetchDashboardData = async () => {
             try {
                 const token = localStorage.getItem('token');
+                if (!token) return setLoading(false);
+
                 const res = await axios.get('http://localhost:5000/api/auth/me', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -76,6 +79,16 @@ export default function Dashboard() {
                         setLiveCoords([bus.currentLocation.lat, bus.currentLocation.lng]);
                     }
                 }
+
+                const histRes = await axios.get('http://localhost:5000/api/notifications/history', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setHistory(histRes.data.history || histRes.data);
+
+                if (res.data._id) {
+                    requestForToken(res.data._id);
+                }
+
                 setLoading(false);
             } catch (err) {
                 console.error("Dashboard fetch error:", err);
@@ -98,44 +111,23 @@ export default function Dashboard() {
         return () => socket.disconnect();
     }, [activeStudent?.assignedBus?._id]);
 
-    // Update Distance whenever bus moves or student changes
     useEffect(() => {
         if (userData?.lat && liveCoords) {
             const d = calculateDistance(liveCoords[0], liveCoords[1], userData.lat, userData.lng);
             setDistance(d);
         }
-    }, [liveCoords, userData, activeStudent]);
+    }, [liveCoords, userData]);
 
     useEffect(() => {
-  const fetchHistory = async () => {
-    const res = await axios.get('http://localhost:5000/api/notifications/history', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    setHistory(res.data);
-  };
-  fetchHistory();
-}, []);
-
-return (
-  <div className="mt-8">
-    <h3 className="text-xl font-bold mb-4 italic uppercase">Notification <span className="text-amber-500">History</span></h3>
-    <div className="space-y-3">
-      {history.map(notif => (
-        <div key={notif._id} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-start gap-4">
-          <div className={`p-2 rounded-lg ${notif.type === 'EMERGENCY' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
-            <AlertCircle size={18} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-200">{notif.message}</p>
-            <p className="text-[10px] text-slate-500 mt-1 uppercase font-black">
-              {new Date(notif.createdAt).toLocaleString()}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
+        onMessageListener()
+            .then((payload) => {
+                toast.success(`${payload.notification.title}: ${payload.notification.body}`, {
+                    duration: 5000,
+                    position: 'top-right',
+                });
+            })
+            .catch((err) => console.log('Message listener failed: ', err));
+    }, []);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-slate-950">
@@ -147,6 +139,7 @@ return (
 
     return (
         <div className={`flex flex-col min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+            <Toaster />
             <Navbar onOpenDemo={() => setIsContactOpen(true)} />
 
             <div className="flex flex-1 pt-20">
@@ -189,7 +182,6 @@ return (
                     </div>
                 </aside>
 
-                {/* MAIN MAP AREA */}
                 <main className="flex-1 p-6 lg:p-10 overflow-y-auto">
                     {!bus ? (
                         <div className="h-full flex flex-col items-center justify-center text-center">
@@ -216,7 +208,6 @@ return (
                                     </h1>
                                 </div>
 
-                                {/* Distance Badge */}
                                 <div className={`p-4 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} shadow-xl min-w-[200px]`}>
                                     <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Distance to Home</p>
                                     <p className="text-3xl font-black italic text-amber-500 uppercase">{distance || "---"} <span className="text-sm">KM</span></p>
@@ -228,7 +219,6 @@ return (
                                     <MapContainer center={liveCoords} zoom={15} style={{ height: '100%', width: '100%' }}>
                                         <TileLayer url={isDarkMode ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} />
                                         
-                                        {/* Home Marker */}
                                         {userData?.lat && (
                                             <Marker position={[userData.lat, userData.lng]} icon={homeIcon}>
                                                 <Popup><p className="font-bold uppercase italic text-xs">Your Home</p></Popup>
@@ -239,8 +229,7 @@ return (
                                         <RecenterMap coords={liveCoords} />
                                     </MapContainer>
 
-                                    {/* Proximity Overlay Alert */}
-                                    {distance && distance < 1.0 && (
+                                    {distance && parseFloat(distance) < 1.0 && (
                                         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] bg-amber-500 text-slate-900 px-8 py-4 rounded-full font-black uppercase italic flex items-center gap-3 shadow-2xl animate-bounce">
                                             <Navigation size={20} className="animate-pulse" />
                                             Bus is arriving soon! (Under 1KM)
@@ -266,7 +255,8 @@ return (
                                                         <p className="text-xs font-bold text-amber-500 mt-1">{bus.driver?.mobileNo || "Contact Not Shared"}</p>
                                                     </div>
                                                 </div>
-                                                <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                                            </div>
+                                            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                                                 <div className="flex items-center gap-4">
                                                     <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl"><Users size={20} /></div>
                                                     <div>
@@ -276,22 +266,32 @@ return (
                                                     </div>
                                                 </div>
                                             </div>
-                                            </div>
-                                            
-                                            {/* Status Updates Section */}
-                                            <div className={`p-6 rounded-[2rem] border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                                                <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-                                                    <AlertTriangle size={12} className="text-amber-500" /> Notifications
-                                                </h3>
-                                                <div className="space-y-2">
-                                                    <p className="text-[10px] font-bold text-green-500 uppercase">● Bus started trip</p>
-                                                    {distance && distance < 1 && (
-                                                        <p className="text-[10px] font-black text-amber-500 uppercase animate-pulse">● Near pickup point</p>
-                                                    )}
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Notification History Section */}
+                            <div className="mt-12">
+                                <h3 className="text-xl font-bold mb-6 italic uppercase">Notification <span className="text-amber-500">History</span></h3>
+                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {history.length === 0 ? (
+                                        <p className="text-slate-500 text-sm italic">No history found.</p>
+                                    ) : (
+                                        history.map(notif => (
+                                            <div key={notif._id} className={`p-4 rounded-2xl border flex items-start gap-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'}`}>
+                                                <div className={`p-2 rounded-lg ${notif.type === 'EMERGENCY' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                                                    <AlertCircle size={18} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-200">{notif.message}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-1 uppercase font-black">
+                                                        {new Date(notif.createdAt).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         </div>

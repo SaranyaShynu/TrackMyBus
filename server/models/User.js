@@ -18,7 +18,8 @@ const UserSchema = new mongoose.Schema({
   }], 
   assignedBus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' },
   resetToken: String,
-  resetTokenExpiry: Date
+  resetTokenExpiry: Date,
+  fcmToken: { type: String, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

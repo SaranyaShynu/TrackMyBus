@@ -22,7 +22,6 @@ export const requestForToken = async (userId) => {
       });
       
       if (token) {
-        // Send token to backend
         await axios.post('http://localhost:5000/api/users/update-fcm-token', { 
           userId, 
           fcmToken: token 
