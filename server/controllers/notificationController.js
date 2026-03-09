@@ -13,7 +13,7 @@ exports.broadcastNotification = async (req, res) => {
             return res.status(404).json({ success: false, msg: "Bus not found" });
         }
 
-        const students = await Student.find({ assignedBus: busId }).populate('parent');
+        const students = await Student.find({ assignedBus: busId }).populate('parentId');
         
         const parentIds = [...new Set(students.map(s => s.parent?._id).filter(id => id))];
         const fcmTokens = [...new Set(students.map(s => s.parent?.fcmToken).filter(token => token))];

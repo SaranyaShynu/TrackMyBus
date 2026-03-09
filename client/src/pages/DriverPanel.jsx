@@ -49,8 +49,8 @@ export default function DriverPanel() {
             const building = isMainBuilding ? "Main Building" : "West Building";
 
             const routeInfo = isEvening 
-              ? `${building} ➔ Home (${s.stop || 'Default Stop'})` 
-              : `Home (${s.stop || 'Default Stop'}) ➔ ${building}`;
+              ? `${building} ➔ Home (${s.stopLocation?.name || 'Default Stop'})` 
+              : `Home (${s.stopLocation?.name || 'Default Stop'}) ➔ ${building}`;
 
             return {
               ...s,
@@ -78,8 +78,6 @@ export default function DriverPanel() {
     }
 
     setIsBroadcasting(true);
-    
-    // Broadcast "Journey Started" to Parents
     sendNotification('START', "The bus has started the journey!");
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -87,7 +85,7 @@ export default function DriverPanel() {
         const { latitude, longitude } = position.coords;
         setCurrentCoords({ lat: latitude, lng: longitude });
 
-        // Emit to Socket for Real-Time Parent View
+        // Emit to Socket - The Backend will handle "Nearby" calculations per student
         socketRef.current.emit('updateLocation', {
           busId: driverData.assignedBus._id,
           lat: latitude,
@@ -96,7 +94,11 @@ export default function DriverPanel() {
         });
       },
       (error) => console.error("GPS Error:", error),
-      { enableHighAccuracy: true, distanceFilter: 10 }
+      { 
+        enableHighAccuracy: true, 
+        maximumAge: 0,
+        timeout: 5000 
+      }
     );
   };
 
@@ -109,27 +111,19 @@ export default function DriverPanel() {
   const sendNotification = async (type, customMessage) => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      
-      // We send the request to a unified broadcast endpoint
-      // The backend will handle routing this to Parents and/or Admins based on the 'type'
       await axios.post('http://localhost:5000/api/notifications/broadcast', {
         busId: driverData.assignedBus._id,
         driverName: driverData.name,
         message: customMessage,
-        type: type, // 'START', 'DELAY', 'EMERGENCY', 'END'
-        includeAdmin: ['DELAY', 'EMERGENCY'].includes(type) // Admin only cares about these two
+        type: type,
+        includeAdmin: ['DELAY', 'EMERGENCY'].includes(type)
       }, config);
 
-      // UI Feedback for the Driver
-      if (type === 'EMERGENCY') {
-        alert("🚨 EMERGENCY ALERT SENT TO ADMIN AND PARENTS!");
-      } else if (type === 'DELAY') {
-        alert("Traffic delay reported to Admin and Parents.");
-      }
+      if (type === 'EMERGENCY') alert("🚨 EMERGENCY ALERT SENT!");
+      else if (type === 'DELAY') alert("Traffic delay reported.");
       
     } catch (err) {
       console.error("Broadcast failed:", err);
-      alert("Failed to send alert. Check connection.");
     }
   };
 
@@ -274,7 +268,7 @@ export default function DriverPanel() {
                             <Navigation size={12} /> {student.displayRoute}
                           </p>
                           <p className="text-slate-500 text-xs font-bold flex items-center gap-1">
-                            <MapPin size={12}/> Parent: {student.parentName || 'N/A'}
+                            <MapPin size={12}/> {student.stopLocation?.name || 'No Stop Info'}
                           </p>
                         </div>
                       </div>
@@ -305,7 +299,6 @@ export default function DriverPanel() {
 
           {/* SIDEBAR TOOLS */}
           <div className="space-y-6">
-            {/* Traffic Delay Tool */}
             <div className="bg-amber-400 p-8 rounded-[2.5rem] shadow-xl text-slate-900">
               <AlertCircle size={32} className="mb-4" />
               <h3 className="text-2xl font-black italic mb-2 tracking-tighter uppercase leading-none">Traffic Alert?</h3>
@@ -318,7 +311,6 @@ export default function DriverPanel() {
               </button>
             </div>
 
-            {/* Emergency SOS Button */}
             <button 
               onClick={() => sendNotification('EMERGENCY', "EMERGENCY: The bus has stopped due to an issue. Please wait for further updates.")}
               className="w-full bg-red-600 p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col items-center gap-4 hover:bg-red-700 transition-colors"

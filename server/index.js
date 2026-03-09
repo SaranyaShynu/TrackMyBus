@@ -4,36 +4,45 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const authRoutes = require('./routes/auth');
-const app = express();
-const server = http.createServer(app);
+const admin = require('firebase-admin');
 
 const Student = require('./models/Student');
 
-// Socket.io Setup
+const app = express();
+const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
-    credentials:true
+    credentials: true
   }
 });
 
-app.set('socketio',io);
-
-// Middleware
+app.set('socketio', io);
 app.use(express.json());
 app.use(cors());
+
+// Firebase (Ensure your .env keys are correct)
+if (process.env.FIREBASE_PROJECT_ID) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    }),
+  });
+}
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
-app.use('/api/bus' , require('./routes/busRoutes'));
-app.use('/api/notifications' , require('./routes/notificationRoutes'));
+app.use('/api/bus', require('./routes/busRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 const busStatus = {};
-const busStudentsCache = {};
+const notifiedStatus = new Set(); // To prevent notification spam in a single session
 
 io.on('connection', (socket) => {
   console.log('📡 New Connection:', socket.id);
@@ -45,13 +54,19 @@ io.on('connection', (socket) => {
 
   socket.on('joinAdminRoom', () => {
     socket.join('admin-control-center');
-    console.log(`Admin joined control center`);
+  });
+
+  socket.on('joinStudentRoom', (studentId) => {
+    socket.join(studentId.toString());
   });
 
   socket.on('updateLocation', async (data) => {
     const { busId, lat, lng, speed, busNo } = data;
+
+    // Broadcast to Map Views
     io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
 
+    // 1. Traffic Logic
     if (!busStatus[busId]) busStatus[busId] = { idleCount: 0 };
     if (speed < 5) { 
       busStatus[busId].idleCount++;
@@ -67,9 +82,10 @@ io.on('connection', (socket) => {
       busStatus[busId].idleCount = 0; 
     }
 
+    // 2. School Arrival Logic
     const schoolCoords = { lat: 11.7491, lng: 75.4890 };
     const distToSchool = calculateDistance(lat, lng, schoolCoords.lat, schoolCoords.lng);
-    if (distToSchool < 0.2) { // Within 200 meters
+    if (distToSchool < 0.2) { 
       io.to(busId).to('admin-control-center').emit('notification', {
         type: 'ARRIVAL_SCHOOL',
         busNo,
@@ -78,55 +94,44 @@ io.on('connection', (socket) => {
       });
     }
 
-    if (!busStudentsCache[busId]) {
-      try {
-        busStudentsCache[busId] = await Student.find({ assignedBus: busId });
-      } catch (err) {
-        console.error("Error fetching students for proximity check:", err);
-      }
-    }
+    // 3. Proximity Logic (Fixes Schema Path)
+    try {
+      const students = await Student.find({ assignedBus: busId });
+      
+      students.forEach(student => {
+        // Accessing path matching your Schema: stopLocation.coordinates
+        const sLat = student.stopLocation?.coordinates?.lat;
+        const sLng = student.stopLocation?.coordinates?.lng;
 
-    if (busStudentsCache[busId]) {
-      busStudentsCache[busId].forEach(student => {
+        if (sLat && sLng) {
+          const distToHome = calculateDistance(lat, lng, sLat, sLng);
+          const notificationKey = `${student._id}-near-home`;
 
-        if (student.lat && student.lng) {
-          const distToHome = calculateDistance(lat, lng, student.lat, student.lng);
-          
-          if (distToHome < 0.5 && !student.notifiedNearHome) {
-             io.to(busId).emit('notification', {
-               type: 'NEAR_HOME',
-               studentId: student._id,
-               message: `The bus is nearly at ${student.name}'s stop! Please get ready.`,
-               time: new Date().toLocaleTimeString()
-             });
-             student.notifiedNearHome = true; 
+          if (distToHome < 0.5 && !notifiedStatus.has(notificationKey)) {
+            io.to(student._id.toString()).emit('notification', {
+              type: 'NEAR_HOME',
+              studentId: student._id,
+              message: `The bus is nearly at ${student.name}'s stop! (Distance: ${(distToHome * 1000).toFixed(0)}m)`,
+              time: new Date().toLocaleTimeString()
+            });
+            notifiedStatus.add(notificationKey);
           } 
-          else if (distToHome > 1.0) {
-            student.notifiedNearHome = false;
+          // Reset notification if bus moves away (more than 1.5km)
+          else if (distToHome > 1.5) {
+            notifiedStatus.delete(notificationKey);
           }
         }
       });
+    } catch (err) {
+      console.error("Proximity Check Error:", err);
     }
   });
 
-  socket.on('sendDelayAlert', (data) => {
-    const { busId, busNo, message, driverName } = data;
-    const alert = {
-      type: 'MANUAL_DELAY',
-      busNo,
-      driverName,
-      message,
-      time: new Date().toLocaleTimeString()
-    };
-    io.to(busId).to('admin-control-center').emit('notification', alert);
-  });
-
   socket.on('disconnect', () => {
-    console.log('❌ Disconnected');
+    console.log('❌ Disconnected:', socket.id);
   });
 });
 
-// Haversine Formula for accurate distance in KM
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -141,8 +146,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected Successfully"))
   .catch(err => console.log("❌ MongoDB Connection Error:", err));
-
-app.get('/', (req, res) => res.send("TrackMyBus API is running..."));
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server spinning on port ${PORT}`));
