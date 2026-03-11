@@ -41,7 +41,7 @@ exports.broadcastNotification = async (req, res) => {
         io.to(`bus_${busId}`).emit('parentNotification', payload);
 
         if (includeAdmin || type === 'EMERGENCY' || type === 'DELAY') {
-            io.to('admin_room').emit('adminAlert', {
+            io.to('admin_control-center').emit('notification', {
                 ...payload,
                 priority: type === 'EMERGENCY' ? 'CRITICAL' : 'HIGH'
             });
