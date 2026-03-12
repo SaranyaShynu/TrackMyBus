@@ -104,49 +104,72 @@ export default function Dashboard() {
         };
         fetchDashboardData();
     }, []);
+// socket io
+useEffect(() => {
+    if (!activeStudent?._id) return;
 
-    // Socket.io Integration
-    useEffect(() => {
-        if (!activeStudent?._id || !activeStudent?.assignedBus?._id) return;
+    const socket = io('http://localhost:5000');
+    const studentId = activeStudent._id;
+    const currentBusId = activeStudent.assignedBus?._id;
 
-        const busId = activeStudent.assignedBus._id;
-        const studentId = activeStudent._id;
-        const socket = io('http://localhost:5000');
+    socket.emit('joinStudentRoom', studentId);
+    if (currentBusId) {
+        socket.emit('joinBusRoom', currentBusId);
+    }
 
-        socket.emit('joinBusRoom', busId);
-        socket.emit('joinStudentRoom', studentId);
+    socket.on('fleetUpdate', (data) => {
+        if (currentBusId === data.busId || currentBusId === data._id) {
+            setLiveCoords([data.lat, data.lng]);
+        }
+    });
 
-        socket.on('fleetUpdate', (data) => {
-            if (busId === data.busId) {
-                setLiveCoords([data.lat, data.lng]);
-            }
-        });
+    socket.on('notification', (data) => {
+        
+        if (data.type === 'BUS_REASSIGNED') {
+            toast.error(data.message, {
+                icon: '🔄',
+                duration: 8000,
+                style: {
+                    borderRadius: '15px',
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontWeight: 'bold'
+                }
+            });
 
-        socket.on('notification', (data) => {
-            // Real-time toast for proximity or delays
+            setTimeout(() => {
+                window.location.reload(); 
+            }, 2000);
+        } 
+        
+        else {
             toast.success(data.message, {
                 icon: data.type === 'NEAR_HOME' ? '🏠' : '🚌',
                 style: { 
                     borderRadius: '15px', 
-                    background: isDarkMode ? '#0f172a' : '#fff', 
+                    background: isDarkMode ? '#1e293b' : '#fff', 
                     color: isDarkMode ? '#fff' : '#1e293b',
                     border: '2px solid #f59e0b',
                     fontWeight: 'bold'
                 },
                 duration: 6000
             });
+        }
 
-            // Add to history state immediately
-            setHistory(prev => [{
-                _id: Date.now(),
-                message: data.message,
-                type: data.type,
-                createdAt: new Date().toISOString()
-            }, ...prev]);
-        });
+        setHistory(prev => [{
+            _id: Date.now(),
+            message: data.message,
+            type: data.type,
+            createdAt: new Date().toISOString()
+        }, ...prev]);
+    });
 
-        return () => socket.disconnect();
-    }, [activeStudent?._id, activeStudent?.assignedBus?._id, isDarkMode]);
+    return () => {
+        socket.off('fleetUpdate');
+        socket.off('notification');
+        socket.disconnect();
+    };
+}, [activeStudent?._id, activeStudent?.assignedBus?._id, isDarkMode]);
 
     // Live Distance Calculation
     useEffect(() => {
