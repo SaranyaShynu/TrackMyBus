@@ -61,9 +61,6 @@ io.on('connection', (socket) => {
     socket.join(studentId.toString());
   });
 
-  socket.on('updateLocation', async (data) => {
-    const { busId, lat, lng, speed, busNo } = data;
-
     // Broadcast to Map Views
     io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
 
@@ -108,6 +105,10 @@ io.on('connection', (socket) => {
       io.to(data.studentId).emit('notification', successNotif);
     } catch (err) { console.error(err); }
   });
+
+  socket.on('updateLocation', async (data) => {
+    const { busId, lat, lng, speed, busNo } = data;
+    io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
 
     // 1. Traffic Logic
     if (!busStatus[busId]) busStatus[busId] = { idleCount: 0 };
