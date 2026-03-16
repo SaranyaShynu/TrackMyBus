@@ -34,7 +34,7 @@ const studentSchema=new mongoose.Schema({
     },
     status:{
         type:String,
-        enum:['home','on-bus','at-school','absent'],
+        enum:['home','on-bus','at-school','absent','missed'],
         default:'home'
     },
     medicalInfo:{

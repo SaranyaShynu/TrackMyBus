@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, Bus, ShieldCheck, UserPlus, Edit2, Trash2, LayoutDashboard,
   School, Moon, Sun, LogOut, ChevronRight, Hash, Navigation, Mail,
-  Phone, Key, Search, Eye, X, GraduationCap
+  Phone, Key, Search, Eye, X, GraduationCap, Bell, AlertTriangle, CheckCircle,
 } from 'lucide-react';
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -64,6 +64,7 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [buses, setBuses] = useState([]);
   const [liveFleet, setLiveFleet] = useState([]);
+  const [notifications, setNotifications] = useState([]);
 
   // Interaction States
   const [showModal, setShowModal] = useState(null);
@@ -72,6 +73,7 @@ export default function AdminPanel() {
   const [editingStudent, setEditingStudent] = useState(null);
   const [viewingParent, setViewingParent] = useState(null);
   const [selectedBus, setSelectedBus] = useState(null);
+  const [allStudents, setAllStudents] = useState([]);
 
   // Search States
   const [busSearchQuery, setBusSearchQuery] = useState('');
@@ -93,48 +95,83 @@ export default function AdminPanel() {
 
   useEffect(() => { fetchData(); }, []);
 
+ // --- SOCKET.IO LOGIC ---
   useEffect(() => {
+    if (!socket) return;
+
     socket.emit('joinAdminRoom');
 
+    // 1. Listen for Live Bus Movements
     socket.on('fleetUpdate', (data) => {
       setLiveFleet(prev => prev.map(bus =>
         bus._id === data.busId
-          ? { ...bus, currentLocation: { lat: data.lat, lng: data.lng }, lastUpdate: new Date().toLocaleTimeString() }
+          ? { ...bus, currentLocation: { lat: data.lat, lng: data.lng }, speed: data.speed, lastUpdate: new Date().toLocaleTimeString() }
           : bus
       ));
     });
 
+    // 2. Listen for Parent Notifications (Missed Bus)
+    socket.on('notification', (notif) => {
+      if (notif.type === 'EMERGENCY') {
+        alert(`URGENT: ${notif.message}`);
+        fetchData(); 
+      }
+    });
+
+    socket.on('refresh_data', () => {
+      fetchData();
+    });
+
     return () => {
       socket.off('fleetUpdate');
+      socket.off('notification');
+      socket.off('refresh_data');
     };
-  }, []);
+  }, [socket]);
 
+  // Sync Live Fleet when buses are loaded from Database
   useEffect(() => {
-    if (buses.length > 0) {
-      setLiveFleet(buses);
-      const interval = setInterval(() => {
-        setLiveFleet(prev => prev.map(bus => ({
-          ...bus,
-          currentLocation: {
-            lat: (bus.currentLocation?.lat || 11.7491) + (Math.random() - 0.5) * 0.0002,
-            lng: (bus.currentLocation?.lng || 75.4890) + (Math.random() - 0.5) * 0.0002,
-          },
-          lastUpdate: new Date().toLocaleTimeString()
-        })));
-      }, 3000);
-      return () => clearInterval(interval);
+   if (buses.length > 0) {
+      setLiveFleet(prev => {
+        if (prev.length > 0) return prev; 
+        return buses.map(b => ({
+          ...b,
+          currentLocation: b.currentLocation || { lat: 11.7491, lng: 75.4890 },
+          lastUpdate: 'Awaiting Signal...'
+        }));
+      });
     }
   }, [buses]);
 
-  const fetchData = async () => {
+ const fetchData = async () => {
     try {
+      // 1. Fetch Users and Buses first (The essentials)
       const [uRes, bRes] = await Promise.all([
         axios.get('http://localhost:5000/api/admin/all-users', config),
         axios.get('http://localhost:5000/api/admin/buses', config)
       ]);
+      
       setUsers(uRes.data || []);
       setBuses(bRes.data || []);
-    } catch (err) { console.error("Database sync error", err); }
+
+      // 2. Fetch Students separately so it doesn't break the UI if the route is missing
+      try {
+        const sRes = await axios.get('http://localhost:5000/api/admin/all-students', config);
+        setAllStudents(sRes.data || []);
+      } catch (studentErr) {
+        console.warn("Student route not found or failed, skipping students.");
+        const derivedStudents = (uRes.data || [])
+          .filter(u => u.role === 'parent')
+          .flatMap(p => (p.children || []).map(c => ({ 
+            ...c, 
+            parentName: p.name, 
+            parentId: p._id 
+          })));
+        setAllStudents(derivedStudents);
+      }
+    } catch (err) {
+      console.error("Critical Sync Error:", err);
+    }
   };
 
   // --- HANDLERS ---
@@ -219,22 +256,46 @@ export default function AdminPanel() {
   const handleDeleteBus = async (id) => { if (window.confirm("Delete bus?")) { await axios.delete(`http://localhost:5000/api/admin/bus/${id}`, config); fetchData(); } };
   const handleDeleteStudent = async (pId, sId) => { if (window.confirm("Delete student?")) { await axios.delete(`http://localhost:5000/api/admin/parent/${pId}/student/${sId}`, config); fetchData(); } };
 
+ const handleReassignPickup = (studentName, pickupLocation, targetBusId) => {
+  if (!socket) return alert("System offline. Please refresh.");
+  const targetBus = buses.find(b => b._id === targetBusId);
+  const data = {
+    busId: targetBusId, 
+    adminId: driverData?._id || "Admin",
+    studentName: studentName,
+    pickupLocation: pickupLocation,
+    isTemporary: true
+  };
+
+  socket.emit('admin_reassign_driver', data);
+  socket.emit('temp_bus_assignment', {
+    studentName: studentName,
+    tempBusNo: targetBus?.busNo,
+    tempBusId: targetBusId
+  });
+  alert(`Temporary Pickup: Bus ${targetBus?.busNo} alerted for ${studentName}.`);
+  
+  setNotifications(prev => [{
+    type: 'INFO',
+    message: `Temp Reassignment: Bus ${targetBusId} ➔ ${studentName}`,
+    time: new Date().toLocaleTimeString()
+  }, ...prev]);
+};
+
   const openUserEdit = (u) => { setEditingUser({ id: u._id, name: u.name, email: u.email, mobileNo: u.mobileNo, role: u.role }); setShowModal('user'); };
   const openBusEdit = (b) => { setEditingBus({ id: b._id, busNo: b.busNo, route: b.route, schoolBuilding: b.schoolBuilding, driver: b.driver?._id || '', assistant: b.assistant?._id || '', capacity: b.capacity || 40 }); setShowModal('bus'); };
   const openStudentEdit = (pId, s) => { setEditingStudent({ ...s, parentId: pId }); setShowModal('student-edit'); };
 
   // --- DATA FILTERING ---
-  const allStudents = users
-    .filter(u => u.role === 'parent')
-    .flatMap(p => (p.children || []).map(c => ({ ...c, name: c.name || 'Loading...', parentName: p.name, parentId: p._id })))
-    // Add (s.name || '') to prevent the crash
-    .filter(s => (s.name || '').toLowerCase().includes(studentSearchQuery.toLowerCase()));
+ const filteredStudents = (allStudents || []).filter(s => 
+    (s.name || '').toLowerCase().includes(studentSearchQuery.toLowerCase())
+  );
 
-  const filteredBuses = buses.filter(b =>
+  const filteredBuses = (buses || []).filter(b =>
     (b.busNo || '').toLowerCase().includes(busSearchQuery.toLowerCase())
   );
 
-  const filteredUsers = users.filter(u =>
+  const filteredUsers = (users || []).filter(u =>
     (u.name || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
     (u.email || '').toLowerCase().includes(userSearchQuery.toLowerCase())
   );
@@ -255,6 +316,20 @@ export default function AdminPanel() {
           <div className="bg-amber-500 p-2 rounded-xl"><ShieldCheck size={24} className="text-slate-950" /></div>
           <span className="font-black uppercase tracking-tighter text-xl italic">Control<span className="text-amber-500">Center</span></span>
         </div>
+        {/* In your Navigation Menu */}
+<button onClick={() => setActiveTab('alerts')} className={`relative flex items-center gap-4 p-4 rounded-xl transition-all ${
+    activeTab === 'alerts' ? 'bg-red-500/10 text-red-500' : 'opacity-60 hover:opacity-100'
+  }`}>
+  <Bell size={20} />
+  <span className="font-bold uppercase tracking-tighter">System Alerts</span>
+  
+  {/* The Notification Badge */}
+  {allStudents.filter(s => s.status === 'missed').length > 0 && (
+    <span className="absolute right-4 top-4 w-5 h-5 bg-red-600 text-[10px] flex items-center justify-center rounded-full animate-bounce">
+      {allStudents.filter(s => s.status === 'missed').length}
+    </span>
+  )}
+</button>
         <div className="flex items-center gap-5">
           <button onClick={() => setAdminDark(!adminDark)} className={`p-2.5 rounded-xl border ${adminDark ? 'border-slate-800 bg-slate-900 text-amber-400' : 'border-slate-200 bg-white text-slate-600'}`}>
             {adminDark ? <Sun size={20} /> : <Moon size={20} />}
@@ -571,56 +646,153 @@ export default function AdminPanel() {
               </form>
             </div>
           )}
+{/* LIVE TRACKING VIEW (When a bus card is clicked) */}
+{selectedBus && (
+  <div className={`fixed inset-0 z-[100] flex flex-col ${adminDark ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'}`}>
+    {/* HEADER */}
+    <div className={`h-20 border-b flex items-center justify-between px-8 ${adminDark ? 'border-slate-800' : 'border-slate-100'}`}>
+      <div className="flex items-center gap-4">
+        <button onClick={() => setSelectedBus(null)} className="p-2 rounded-xl hover:bg-slate-500/10 transition-all">
+          <X size={24} />
+        </button>
+        <h2 className="text-xl font-black italic uppercase tracking-tighter">
+          Tracking Bus <span className="text-amber-500">{selectedBus.busNo}</span>
+        </h2>
+      </div>
+      <div className="flex gap-4 items-center">
+        <span className="flex items-center gap-2 text-[10px] font-black uppercase bg-green-500/10 text-green-500 px-4 py-2 rounded-full border border-green-500/20">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> Live Signal
+        </span>
+      </div>
+    </div>
 
-          {/* LIVE TRACKING VIEW (When a bus card is clicked) */}
-          {selectedBus && (
-            <div className={`fixed inset-0 z- flex flex-col ${adminDark ? 'bg-slate-950' : 'bg-white'}`}>
-              <div className="h-20 border-b flex items-center justify-between px-8">
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setSelectedBus(null)} className="p-2 rounded-xl hover:bg-slate-500/10">
-                    <X size={24} />
-                  </button>
-                  <h2 className="text-xl font-black italic uppercase">
-                    Tracking Bus <span className="text-amber-500">{selectedBus.busNo}</span>
-                  </h2>
-                </div>
-                <div className="flex gap-4 items-center">
-                  <span className="flex items-center gap-2 text-[10px] font-black uppercase bg-green-500/10 text-green-500 px-4 py-2 rounded-full">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> Live Signal
-                  </span>
-                </div>
-              </div>
+    {/* MAP AREA */}
+    <div className="flex-1 relative">
+      <MapContainer 
+        center={[selectedBus.currentLocation?.lat || 11.7491, selectedBus.currentLocation?.lng || 75.4890]} 
+        zoom={14} 
+        className="h-full w-full"
+        zoomControl={false}
+      >
+        <TileLayer
+          url={adminDark ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
+        />
 
-              <div className="flex-1 relative bg-slate-800">
-                {/* MAP PLACEHOLDER - Replace with <MapContainer> if using Leaflet */}
-                <div className="absolute inset-0 flex items-center justify-center text-slate-500 font-black uppercase tracking-widest text-sm">
-                  <div className="text-center">
-                    <Navigation size={48} className="mx-auto mb-4 animate-bounce text-amber-500" />
-                    Rendering Real-Time Map...<br />
-                    <span className="text-xs opacity-50">
-                      Coordinates: {selectedBus.currentLocation?.lat.toFixed(4)}, {selectedBus.currentLocation?.lng.toFixed(4)}
-                    </span>
+        {/* 1. THE MOVING BUS (from your fleetUpdate socket) */}
+        <Marker position={[selectedBus.currentLocation.lat, selectedBus.currentLocation.lng]} icon={busIcon}>
+          <Popup className="font-sans font-bold uppercase">Bus {selectedBus.busNo}</Popup>
+        </Marker>
+
+        {/* 2. THE MISSED STUDENTS (Red Markers) */}
+        {allStudents.map(student => (
+          student.status === 'missed' && (
+            <Marker 
+              key={student._id}
+              position={[
+                            student.stopLocation?.coordinates?.lat || 0, 
+                            student.stopLocation?.coordinates?.lng || 0
+                        ]}
+              icon={L.divIcon({ 
+                className: 'custom-div-icon',
+                html: `<div class="w-6 h-6 bg-red-600 rounded-full border-4 border-white animate-bounce shadow-lg"></div>` 
+              })}
+            >
+              <Popup>
+                <div className="p-2 text-slate-900 min-w-[150px]">
+                  <p className="text-[10px] font-black uppercase text-red-600 mb-1">Missed Bus Alert</p>
+                  <h4 className="font-bold text-sm mb-2">{student.name}</h4>
+                  
+                  <p className="text-[8px] font-black uppercase opacity-50 mb-1">Reassign Pickup:</p>
+                  <div className="flex flex-col gap-1">
+                    {/* Maps through all buses to find nearest */}
+                    {buses.map(bus => (
+                      <button 
+                        key={bus._id}
+                        onClick={() => handleReassignPickup(student.name, student.stopLocation.name, bus._id)}
+                        className="bg-blue-600 text-white text-[9px] font-black uppercase py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Send Bus {bus.busNo}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              </Popup>
+            </Marker>
+          )
+        ))}
+      </MapContainer>
 
-                {/* INFO OVERLAY */}
-                <div className={`absolute bottom-10 left-10 p-6 rounded-[2rem] border-2 shadow-2xl w-80 ${card}`}>
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Current Route</p>
-                  <p className="font-bold mb-4">{selectedBus.route}</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-500/5 rounded-xl">
-                      <p className="text-[8px] font-black opacity-50 uppercase">Speed</p>
-                      <p className="font-mono font-bold text-amber-500">42 km/h</p>
-                    </div>
-                    <div className="p-3 bg-slate-500/5 rounded-xl">
-                      <p className="text-[8px] font-black opacity-50 uppercase">Next Stop</p>
-                      <p className="font-bold text-xs truncate">Main Terminal</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {/* INFO OVERLAY (Floating on Map) */}
+      <div className={`absolute bottom-10 left-10 p-6 rounded-[2rem] border-2 shadow-2xl w-80 z-[1000] backdrop-blur-md bg-opacity-90 ${card}`}>
+        <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Current Route</p>
+        <p className="font-bold mb-4">{selectedBus.route}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 bg-slate-500/5 rounded-xl border border-slate-500/10">
+            <p className="text-[8px] font-black opacity-50 uppercase">Simulated Speed</p>
+            <p className="font-mono font-bold text-amber-500">42 km/h</p>
+          </div>
+          <div className="p-3 bg-slate-500/5 rounded-xl border border-slate-500/10">
+            <p className="text-[8px] font-black opacity-50 uppercase">Student Status</p>
+            <p className="font-bold text-xs text-red-500">
+              {allStudents.filter(s => s.status === 'missed').length} Pending
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* ALERTS & INCIDENTS TAB */}
+{activeTab === 'alerts' && (
+  <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
+    <div className="mb-8">
+      <h2 className="text-3xl font-black italic uppercase tracking-tighter text-red-500">
+        System <span className={adminDark ? 'text-white' : 'text-slate-900'}>Incidents</span>
+      </h2>
+      <p className="text-[10px] font-black opacity-50 uppercase tracking-[0.2em]">Immediate action required for missed pickups</p>
+    </div>
+
+    <div className="grid gap-4">
+      {allStudents.filter(s => s.status === 'missed').map(student => (
+        <div key={student._id} className={`p-6 rounded-[2rem] border-2 flex items-center justify-between shadow-xl ${card} border-red-500/30 bg-red-500/5`}>
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-red-500 rounded-2xl flex items-center justify-center text-white">
+              <AlertTriangle size={28} />
             </div>
-          )}
+            <div>
+              <h4 className="text-lg font-black uppercase">{student.name}</h4>
+              <p className="text-xs font-bold opacity-60 text-amber-500">Pickup: {student.stopLocation?.name || student.pickupAddress || 'Address Not Set'}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-[8px] font-black uppercase opacity-40 text-center">Dispatch Alternate Unit</p>
+            <div className="flex gap-2">
+              {buses.slice(0, 3).map(bus => (
+                <button 
+                  key={bus._id}
+                  onClick={() => handleReassignPickup(student.name, student.stopLocation.name, bus._id)}
+                  className="px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all border border-slate-700"
+                >
+                  Bus {bus.busNo}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {allStudents.filter(s => s.status === 'missed').length === 0 && (
+        <div className="text-center py-20 opacity-20 border-2 border-dashed rounded-[3rem]">
+          <CheckCircle size={48} className="mx-auto mb-4" />
+          <p className="font-black uppercase tracking-widest text-sm">No Active Alerts</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
         </main>
       </div>
 
@@ -785,7 +957,7 @@ export default function AdminPanel() {
 
       {/* 6. LIVE MAP TRACKING MODAL */}
       {selectedBus && showModal === 'live-track' && (
-       <div className="fixed inset-0 z- flex flex-col bg-slate-950 animate-in fade-in duration-300">
+       <div className="fixed inset-0 z-[110] flex flex-col bg-slate-950 animate-in fade-in duration-300">
           {/* Tracking Header */}
           <div className="h-20 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md">
             <div className="flex items-center gap-4">

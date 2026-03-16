@@ -243,3 +243,14 @@ exports.deleteUser = async (req, res) => {
         res.status(500).json({ message: "Delete failed" });
     }
 };
+
+exports.getAllStudents = async (req, res) => {
+    try {
+        const students = await Student.find()
+            .populate('assignedBus', 'busNo route')
+            .populate('parentId', 'name email mobileNo');
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching students" });
+    }
+};

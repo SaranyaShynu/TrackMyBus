@@ -15,8 +15,8 @@ exports.broadcastNotification = async (req, res) => {
 
         const students = await Student.find({ assignedBus: busId }).populate('parentId');
         
-        const parentIds = [...new Set(students.map(s => s.parent?._id).filter(id => id))];
-        const fcmTokens = [...new Set(students.map(s => s.parent?.fcmToken).filter(token => token))];
+        const parentIds = [...new Set(students.map(s => s.parentId?._id).filter(id => id))];
+        const fcmTokens = [...new Set(students.map(s => s.parentId?.fcmToken).filter(token => token))];
 
         const payload = {
             busId: bus._id,
@@ -41,7 +41,7 @@ exports.broadcastNotification = async (req, res) => {
         io.to(`bus_${busId}`).emit('parentNotification', payload);
 
         if (includeAdmin || type === 'EMERGENCY' || type === 'DELAY') {
-            io.to('admin_control-center').emit('notification', {
+            io.to('adminRoom').emit('notification', {
                 ...payload,
                 priority: type === 'EMERGENCY' ? 'CRITICAL' : 'HIGH'
             });

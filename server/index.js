@@ -62,10 +62,10 @@ io.on('connection', (socket) => {
   });
 
     // Broadcast to Map Views
-    io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
 
    socket.on('parent_missed_bus', async (data) => {
     try {
+      await Student.findByIdAndUpdate(data.studentId, { status: 'missed' });
       const newNotif = await Notification.create({
         busId: data.busId, 
         type: 'EMERGENCY',
@@ -74,6 +74,7 @@ io.on('connection', (socket) => {
         recipients: [/* Admin ID here */]
       });
 
+      io.to('admin-control-center').emit('refresh_data');
       io.to('admin-control-center').emit('notification', newNotif);
     } catch (err) { console.error(err); }
   });
@@ -88,21 +89,28 @@ io.on('connection', (socket) => {
         sender: data.adminId
       });
 
-      io.to(data.busId).emit('driver_instruction', instruction);
+      io.to(data.busId.toString()).emit('driver_instruction', instruction);
     } catch (err) { console.error(err); }
   });
 
   // C. Driver -> Parent (Logging the Success)
   socket.on('driver_pickup_confirmed', async (data) => {
     try {
+      await Student.findByIdAndUpdate(data.studentId, { status: 'present' });
       const successNotif = await Notification.create({
         busId: data.busId,
         type: 'NEAR_HOME', // Using this to trigger the 'success' UI
-        message: `Success: Your child has been picked up by Bus ${data.busNo}.`,
+        message: `${data.studentName} collected at Lat: ${data.pickupCoords.lat}, Lng: ${data.pickupCoords.lng}`,
         recipients: [data.parentId]
       });
 
       io.to(data.studentId).emit('notification', successNotif);
+      io.to('admin-control-center').emit('pickup_verified', {
+      studentId: data.studentId,
+      coords: data.pickupCoords,
+      busNo: data.busNo
+    });
+      io.to('admin-control-center').emit('refresh_data');
     } catch (err) { console.error(err); }
   });
 

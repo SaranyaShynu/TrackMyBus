@@ -110,12 +110,23 @@ useEffect(() => {
 
     const socket = io('http://localhost:5000');
     const studentId = activeStudent._id;
-    const currentBusId = activeStudent.assignedBus?._id;
+    let currentBusId = activeStudent.assignedBus?._id;
 
     socket.emit('joinStudentRoom', studentId);
     if (currentBusId) {
         socket.emit('joinBusRoom', currentBusId);
     }
+
+    socket.on('temp_assignment_broadcast', (data) => {
+        if (data.studentName === activeStudent.name) {
+            toast.error(`Emergency: ${activeStudent.name} is being picked up by Bus ${data.busNo || 'a different bus'}`, {
+                duration: 10000,
+                icon: '🚨'
+            });
+            socket.emit('joinBusRoom', data.busId);
+            currentBusId = data.busId; 
+        }
+    });
 
     socket.on('fleetUpdate', (data) => {
         if (currentBusId === data.busId || currentBusId === data._id) {
@@ -169,25 +180,19 @@ useEffect(() => {
         socket.off('notification');
         socket.disconnect();
     };
-}, [activeStudent?._id, activeStudent?.assignedBus?._id, isDarkMode]);
+}, [activeStudent?.name, activeStudent?._id, activeStudent?.assignedBus?._id, isDarkMode]);
 
     // Live Distance Calculation
-    useEffect(() => {
-        // Use student's specific stop location if available, otherwise fallback to user home
-        const targetLat = activeStudent?.stopLocation?.coordinates?.lat || userData?.lat;
-        const targetLng = activeStudent?.stopLocation?.coordinates?.lng || userData?.lng;
-
-        if (targetLat && liveCoords) {
-            const d = calculateDistance(liveCoords[0], liveCoords[1], targetLat, targetLng);
-            setDistance(d);
-        }
-    }, [liveCoords, activeStudent, userData, calculateDistance]);
-
-    if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-950">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-amber-500"></div>
-        </div>
-    );
+   useEffect(() => {
+    const emergencyNotif = history.find(h => h.type === 'EMERGENCY' && h.message.includes(activeStudent?.name));
+    
+    let targetLat = activeStudent?.stopLocation?.coordinates?.lat || userData?.lat;
+    let targetLng = activeStudent?.stopLocation?.coordinates?.lng || userData?.lng;
+    if (targetLat && liveCoords) {
+        const d = calculateDistance(liveCoords[0], liveCoords[1], targetLat, targetLng);
+        setDistance(d);
+    }
+}, [liveCoords, activeStudent, userData, calculateDistance, history]);
 
     const bus = activeStudent?.assignedBus;
 
@@ -284,6 +289,21 @@ useEffect(() => {
                                         <Marker position={liveCoords} icon={busIcon}>
                                             <Popup><p className="font-bold uppercase text-xs">Bus {bus.busNo}</p></Popup>
                                         </Marker>
+
+{history.filter(h => h.type === 'NEAR_HOME').map((pickup, index) => (
+    pickup.pickupCoords && (
+        <Marker 
+            key={index} 
+            position={[pickup.pickupCoords.lat, pickup.pickupCoords.lng]} 
+            icon={L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png', // Checkmark icon
+                iconSize: [30, 30]
+            })}
+        >
+            <Popup><p className="font-bold text-xs">Pickup Confirmed Here</p></Popup>
+        </Marker>
+    )
+))}
                                         
                                         <RecenterMap coords={liveCoords} />
                                     </MapContainer>
@@ -300,6 +320,23 @@ useEffect(() => {
                                 {/* Information Panels */}
                                 <div className="space-y-6">
                                     <div className={`p-10 rounded-[3.5rem] ${isDarkMode ? 'bg-slate-900' : 'bg-white shadow-xl'}`}>
+                                        <button
+    onClick={() => {
+        if(window.confirm("Alert Admin that your child missed the bus?")) {
+            const socket = io('http://localhost:5000');
+            socket.emit('parent_missed_bus', {
+                studentId: activeStudent._id,
+                studentName: activeStudent.name,
+                busId: activeStudent.assignedBus?._id,
+                parentId: userData._id
+            });
+            toast.success("Emergency Alert Sent to Admin");
+        }
+    }}
+    className="w-full mb-4 py-4 rounded-2xl bg-red-600/10 border border-red-600/20 text-red-500 font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-red-600 hover:text-white transition-all"
+>
+    <AlertTriangle size={16} /> Child Missed Bus
+</button>
                                         <div className="mb-8 pb-4 border-b border-white/5">
                                             <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">Student Profile</p>
                                             <p className="text-3xl font-black italic uppercase tracking-tighter">{activeStudent.name}</p>

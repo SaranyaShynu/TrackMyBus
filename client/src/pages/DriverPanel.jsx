@@ -21,14 +21,36 @@ export default function DriverPanel() {
   const watchIdRef = useRef(null);
   const token = localStorage.getItem('token');
 
-  // Initialize Socket Connection
+ // Initialize Socket Connection
   useEffect(() => {
     socketRef.current = io('http://localhost:5000');
+
+    socketRef.current.on('driver_instruction', (instruction) => {
+      alert(`🚨 NEW PICKUP ORDER:\n${instruction.message}`);
+
+      const tempStudent = {
+        _id: instruction.studentId || `temp-${Date.now()}`, 
+        name: instruction.studentName,
+        displayRoute: `EMERGENCY PICKUP: ${instruction.pickupLocation}`,
+        status: 'pending',
+        isTemporary: true, // This flag helps us identify it later
+        stopLocation: { name: instruction.pickupLocation },
+        parentId: instruction.parentId || null
+      };
+
+      setStudents(prev => [tempStudent, ...prev]);
+    });
+
+    if (driverData?.assignedBus?._id) {
+      socketRef.current.emit('joinBusRoom', driverData.assignedBus._id);
+      console.log(`Driver joined room: ${driverData.assignedBus._id}`);
+    }
+
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
       if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
     };
-  }, []);
+  }, [driverData]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -127,16 +149,33 @@ export default function DriverPanel() {
     }
   };
 
-  const toggleStatus = (id) => {
-    setStudents(prev => prev.map(s => {
-      if (s._id !== id) return s;
-      let nextStatus;
-      if (!s.status || s.status === 'pending') nextStatus = 'present';
-      else if (s.status === 'present') nextStatus = 'absent';
-      else nextStatus = 'pending';
-      return { ...s, status: nextStatus };
-    }));
-  };
+ const toggleStatus = async (id) => {
+  setStudents(prev => prev.map(s => {
+    if (s._id !== id) return s;
+
+    let nextStatus;
+    if (!s.status || s.status === 'pending') nextStatus = 'present';
+    else if (s.status === 'present') nextStatus = 'absent';
+    else nextStatus = 'pending';
+
+    if (nextStatus === 'present') {
+      socketRef.current.emit('driver_pickup_confirmed', {
+        studentId: s._id,
+        studentName: s.name,
+        busId: driverData.assignedBus._id,
+        busNo: driverData.assignedBus.busNo,
+        parentId: s.parentId,
+        pickupCoords: {
+          lat: currentCoords?.lat,
+          lng: currentCoords?.lng
+        },
+        confirmedAt: new Date().toISOString()
+      });
+    }
+
+    return { ...s, status: nextStatus };
+  }));
+};
 
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -252,15 +291,25 @@ export default function DriverPanel() {
                   {filteredStudents.map((student) => (
                     <div 
                       key={student._id} 
-                      className={`p-6 flex items-center justify-between transition-all ${
-                        student.status === 'present' ? 'bg-green-500/5' : 
-                        student.status === 'absent' ? 'bg-red-500/5' : ''
-                      }`}
+                     className={`p-6 flex items-center justify-between transition-all border-l-4 ${
+    student.isTemporary 
+      ? 'border-red-600 bg-red-600/5'
+      : student.status === 'present' ? 'border-transparent bg-green-500/5' : 
+        student.status === 'absent' ? 'border-transparent bg-red-500/5' : 'border-transparent'
+  }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-black text-lg tracking-tight">{student.name}</p>
-                          <span className="text-[10px] bg-slate-500/10 px-2 py-0.5 rounded text-slate-400 font-bold uppercase tracking-widest">G-{student.grade}</span>
+                          {student.isTemporary ? (
+        <span className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-black uppercase tracking-widest animate-pulse">
+          Emergency Task
+        </span>
+      ) : (
+        <span className="text-[10px] bg-slate-500/10 px-2 py-0.5 rounded text-slate-400 font-bold uppercase tracking-widest">
+          G-{student.grade}
+        </span>
+      )}
                         </div>
                         
                         <div className="space-y-1">
