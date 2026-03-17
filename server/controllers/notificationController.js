@@ -38,7 +38,7 @@ exports.broadcastNotification = async (req, res) => {
         });
         await newNotification.save();
 
-        io.to(`bus_${busId}`).emit('parentNotification', payload);
+        io.to(busId.toString()).emit('parentNotification', payload);
 
         if (includeAdmin || type === 'EMERGENCY' || type === 'DELAY') {
             io.to('adminRoom').emit('notification', {
@@ -79,7 +79,11 @@ exports.broadcastNotification = async (req, res) => {
 
 exports.getNotificationHistory = async (req, res) => {
     try {
-        const history = await Notification.find({ recipients: req.user.id })
+        let query={}
+        if (req.user.role !== 'admin') {
+            query = { recipients: req.user.id };
+        }
+        const history = await Notification.find({ query })
             .sort({ createdAt: -1 })
             .limit(20)
             .populate('busId', 'busNo route');

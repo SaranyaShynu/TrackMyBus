@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Auth() {
-  const { isDarkMode } = useTheme(); // Consume theme
+  const { isDarkMode } = useTheme();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -23,6 +23,9 @@ export default function Auth() {
   };
 
   const handleRedirection = (user) => {
+    // Safety check: Ensure user object exists before checking role
+    if (!user) return;
+    
     if (user.role === 'admin') {
       navigate('/admin-panel');
     } else if (user.role === 'driver') {
@@ -66,7 +69,7 @@ export default function Auth() {
           <img 
             src="https://images.unsplash.com/photo-1557223562-6c77ef16210f?auto=format&fit=crop&q=80&w=1000" 
             className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay"
-            alt="School Bus"
+            alt="School Bus background"
           />
           <div className="relative z-10 flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
             <Bus size={32} className={isDarkMode ? 'text-amber-400' : 'text-slate-900'} />
@@ -100,7 +103,6 @@ export default function Auth() {
             </h2>
             <p className="text-slate-500 mb-10 font-medium italic">Role-Based Secure Access</p>
 
-            {/* Google Login remains theme-aware via library */}
             <div className="w-full flex justify-center py-2 mb-2">
               <GoogleLogin
                 onSuccess={async (credentialResponse) => {
@@ -116,8 +118,10 @@ export default function Auth() {
                     }
                   } catch (err) { console.error(err); }
                 }}
+                onError={() => console.log('Login Failed')}
                 theme={isDarkMode ? "filled_black" : "outline"}
-                shape="pill" width="350px"
+                shape="pill" 
+                width="350px"
               />
             </div>
 
@@ -132,7 +136,14 @@ export default function Auth() {
                 <>
                   <div className="relative group">
                     <User className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                    <input name="name" type="text" placeholder="Full Name" required value={formData.name} onChange={handleChange}
+                    <input 
+                      name="name" 
+                      type="text" 
+                      placeholder="Full Name" 
+                      required 
+                      autoComplete="name"
+                      value={formData.name} 
+                      onChange={handleChange}
                       className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                         isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                       }`} 
@@ -140,7 +151,14 @@ export default function Auth() {
                   </div>
                   <div className="relative group">
                     <Phone className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                    <input name="mobileNo" type="tel" placeholder="Mobile Number" required value={formData.mobileNo} onChange={handleChange}
+                    <input 
+                      name="mobileNo" 
+                      type="tel" 
+                      placeholder="Mobile Number" 
+                      required 
+                      autoComplete="tel"
+                      value={formData.mobileNo} 
+                      onChange={handleChange}
                       className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                         isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                       }`} 
@@ -151,7 +169,14 @@ export default function Auth() {
               
               <div className="relative group">
                 <Mail className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                <input name="email" type="email" placeholder="Email Address" required value={formData.email} onChange={handleChange}
+                <input 
+                  name="email" 
+                  type="email" 
+                  placeholder="Email Address" 
+                  required 
+                  autoComplete="email"
+                  value={formData.email} 
+                  onChange={handleChange}
                   className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                     isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                   }`} 
@@ -160,14 +185,20 @@ export default function Auth() {
 
               <div className="relative group">
                 <Lock className="absolute left-4 top-4 text-slate-500 group-focus-within:text-amber-500 transition-colors" size={20} />
-                <input name="password" type="password" placeholder="Password" required value={formData.password} onChange={handleChange}
+                <input 
+                  name="password" 
+                  type="password" 
+                  placeholder="Password" 
+                  required 
+                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  value={formData.password} 
+                  onChange={handleChange}
                   className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-transparent focus:border-amber-400 outline-none transition-all font-semibold ${
                     isDarkMode ? 'bg-slate-800 text-white placeholder:text-slate-600' : 'bg-slate-50 text-slate-900'
                   }`} 
                 />
               </div>
 
-              {/* Forgot Password Link */}
               {isLogin && (
                 <div className="flex justify-end px-2">
                   <button 

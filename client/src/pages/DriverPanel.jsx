@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Menu, X, MapPin, Bus, LogOut, Navigation, 
+import {
+  Menu, X, MapPin, Bus, LogOut, Navigation,
   AlertCircle, Check, Users, Clock, Sun, Moon, Search, Siren, Radio
 } from 'lucide-react';
 import axios from 'axios';
@@ -16,12 +16,12 @@ export default function DriverPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentCoords, setCurrentCoords] = useState(null);
-  
+
   const socketRef = useRef(null);
   const watchIdRef = useRef(null);
   const token = localStorage.getItem('token');
 
- // Initialize Socket Connection
+  // Initialize Socket Connection
   useEffect(() => {
     socketRef.current = io('http://localhost:5000');
 
@@ -29,12 +29,12 @@ export default function DriverPanel() {
       alert(`🚨 NEW PICKUP ORDER:\n${instruction.message}`);
 
       const tempStudent = {
-        _id: instruction.studentId || `temp-${Date.now()}`, 
+        _id: instruction.studentId || `temp-${Date.now()}`,
         name: instruction.studentName,
         displayRoute: `EMERGENCY PICKUP: ${instruction.pickupLocation}`,
         status: 'pending',
         isTemporary: true, // This flag helps us identify it later
-        stopLocation: { name: instruction.pickupLocation },
+        stopLocation: { name: instruction.pickupLocation|| "Emergency Point" },
         parentId: instruction.parentId || null
       };
 
@@ -61,7 +61,7 @@ export default function DriverPanel() {
 
         if (res.data.role === 'driver' && res.data.assignedBus?._id) {
           const busRes = await axios.get(`http://localhost:5000/api/bus/${res.data.assignedBus._id}/students`, config);
-          
+
           const currentTime = new Date().getHours();
           const isEvening = currentTime >= 12;
 
@@ -70,8 +70,8 @@ export default function DriverPanel() {
             const isMainBuilding = s.grade?.toLowerCase().includes('kg') || (gradeLevel >= 1 && gradeLevel <= 4);
             const building = isMainBuilding ? "Main Building" : "West Building";
 
-            const routeInfo = isEvening 
-              ? `${building} ➔ Home (${s.stopLocation?.name || 'Default Stop'})` 
+            const routeInfo = isEvening
+              ? `${building} ➔ Home (${s.stopLocation?.name || 'Default Stop'})`
               : `Home (${s.stopLocation?.name || 'Default Stop'}) ➔ ${building}`;
 
             return {
@@ -116,10 +116,10 @@ export default function DriverPanel() {
         });
       },
       (error) => console.error("GPS Error:", error),
-      { 
-        enableHighAccuracy: true, 
+      {
+        enableHighAccuracy: true,
         maximumAge: 0,
-        timeout: 5000 
+        timeout: 5000
       }
     );
   };
@@ -143,41 +143,41 @@ export default function DriverPanel() {
 
       if (type === 'EMERGENCY') alert("🚨 EMERGENCY ALERT SENT!");
       else if (type === 'DELAY') alert("Traffic delay reported.");
-      
+
     } catch (err) {
       console.error("Broadcast failed:", err);
     }
   };
 
- const toggleStatus = async (id) => {
-  setStudents(prev => prev.map(s => {
-    if (s._id !== id) return s;
+  const toggleStatus = async (id) => {
+    setStudents(prev => prev.map(s => {
+      if (s._id !== id) return s;
 
-    let nextStatus;
-    if (!s.status || s.status === 'pending') nextStatus = 'present';
-    else if (s.status === 'present') nextStatus = 'absent';
-    else nextStatus = 'pending';
+      let nextStatus;
+      if (!s.status || s.status === 'pending') nextStatus = 'present';
+      else if (s.status === 'present') nextStatus = 'absent';
+      else nextStatus = 'pending';
 
-    if (nextStatus === 'present') {
-      socketRef.current.emit('driver_pickup_confirmed', {
-        studentId: s._id,
-        studentName: s.name,
-        busId: driverData.assignedBus._id,
-        busNo: driverData.assignedBus.busNo,
-        parentId: s.parentId,
-        pickupCoords: {
-          lat: currentCoords?.lat,
-          lng: currentCoords?.lng
-        },
-        confirmedAt: new Date().toISOString()
-      });
-    }
+      if (nextStatus === 'present') {
+        socketRef.current.emit('driver_pickup_confirmed', {
+          studentId: s._id,
+          studentName: s.name,
+          busId: driverData.assignedBus._id,
+          busNo: driverData.assignedBus.busNo,
+          parentId: s.parentId,
+          pickupCoords: {
+            lat: currentCoords?.lat,
+            lng: currentCoords?.lng
+          },
+          confirmedAt: new Date().toISOString()
+        });
+      }
 
-    return { ...s, status: nextStatus };
-  }));
-};
+      return { ...s, status: nextStatus };
+    }));
+  };
 
-  const filteredStudents = students.filter(s => 
+  const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -192,7 +192,7 @@ export default function DriverPanel() {
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-300 ${themeClass}`}>
-      
+
       {/* NAVBAR */}
       <nav className={`h-20 border-b flex items-center justify-between px-6 sticky top-0 z-[100] backdrop-blur-md ${driverDark ? 'bg-slate-950/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
         <div className="flex items-center gap-4">
@@ -204,7 +204,7 @@ export default function DriverPanel() {
             <span className="font-black uppercase tracking-tighter text-lg italic">Driver<span className="text-amber-500">Portal</span></span>
           </div>
         </div>
-        
+
         {isBroadcasting && (
           <div className="hidden md:flex items-center gap-2 bg-red-500/10 text-red-500 px-4 py-1.5 rounded-full border border-red-500/20">
             <Radio size={14} className="animate-pulse" />
@@ -250,8 +250,8 @@ export default function DriverPanel() {
             </p>
           </div>
 
-          <button 
-            onClick={isBroadcasting ? stopJourney : startJourney} 
+          <button
+            onClick={isBroadcasting ? stopJourney : startJourney}
             className={`px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest flex items-center gap-3 transition-all shadow-2xl ${isBroadcasting ? 'bg-red-600 text-white shadow-red-500/40' : 'bg-amber-500 text-slate-950 hover:scale-105 shadow-amber-500/20'}`}
           >
             {isBroadcasting ? <X size={20} /> : <Navigation size={20} />}
@@ -261,13 +261,13 @@ export default function DriverPanel() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
-            
+
             {/* SEARCH BOX */}
             <div className={`flex items-center gap-3 px-6 py-4 rounded-3xl border ${cardClass}`}>
               <Search size={20} className="text-slate-500" />
-              <input 
-                type="text" 
-                placeholder="Search student name..." 
+              <input
+                type="text"
+                placeholder="Search student name..."
                 className="bg-transparent border-none outline-none w-full font-bold text-sm"
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -289,50 +289,57 @@ export default function DriverPanel() {
 
                 <div className="divide-y divide-slate-500/10">
                   {filteredStudents.map((student) => (
-                    <div 
-                      key={student._id} 
-                     className={`p-6 flex items-center justify-between transition-all border-l-4 ${
-    student.isTemporary 
-      ? 'border-red-600 bg-red-600/5'
-      : student.status === 'present' ? 'border-transparent bg-green-500/5' : 
-        student.status === 'absent' ? 'border-transparent bg-red-500/5' : 'border-transparent'
-  }`}
+                    <div
+                      key={student._id}
+                      className={`p-6 flex items-center justify-between transition-all border-l-4 ${student.isTemporary
+                          ? 'border-red-600 bg-red-600/5'
+                          : student.status === 'present' ? 'border-transparent bg-green-500/5' :
+                            student.status === 'absent' ? 'border-transparent bg-red-500/5' : 'border-transparent'
+                        }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-black text-lg tracking-tight">{student.name}</p>
                           {student.isTemporary ? (
-        <span className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-black uppercase tracking-widest animate-pulse">
-          Emergency Task
-        </span>
-      ) : (
-        <span className="text-[10px] bg-slate-500/10 px-2 py-0.5 rounded text-slate-400 font-bold uppercase tracking-widest">
-          G-{student.grade}
-        </span>
-      )}
+                            <span className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-black uppercase tracking-widest animate-pulse">
+                              Emergency Task
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-slate-500/10 px-2 py-0.5 rounded text-slate-400 font-bold uppercase tracking-widest">
+                              G-{student.grade}
+                            </span>
+                          )}
                         </div>
-                        
+
                         <div className="space-y-1">
                           <p className="text-amber-500 text-[11px] font-black uppercase flex items-center gap-1 italic">
                             <Navigation size={12} /> {student.displayRoute}
                           </p>
                           <p className="text-slate-500 text-xs font-bold flex items-center gap-1">
-                            <MapPin size={12}/> {student.stopLocation?.name || 'No Stop Info'}
+                            <MapPin size={12} /> {student.stopLocation?.name || 'No Stop Info'}
                           </p>
                         </div>
                       </div>
 
-                      <button 
-                        onClick={() => toggleStatus(student._id)} 
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl ${
-                          student.status === 'present' ? 'bg-green-500 text-white shadow-green-500/20' : 
-                          student.status === 'absent' ? 'bg-red-500 text-white shadow-red-500/20' : 
-                          'bg-slate-800 text-slate-500'
-                        }`}
+                      {student.isTemporary && (
+                        <button
+                          onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(student.stopLocation?.name)}`, '_blank')}
+                          className="mt-3 flex items-center gap-2 bg-white text-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-slate-100 transition-colors w-max"
+                        >
+                          <Navigation size={12} /> Open in GPS
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => toggleStatus(student._id)}
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl active:scale-90 transition-transform ${student.status === 'present' ? 'bg-green-500 text-white shadow-green-500/20' :
+                            student.status === 'absent' ? 'bg-red-500 text-white shadow-red-500/20' :
+                              'bg-slate-800 text-slate-500'
+                          }`}
                       >
-                        {student.status === 'present' ? <Check size={28} /> : 
-                         student.status === 'absent' ? <X size={28} /> : 
-                         <div className="w-2 h-2 rounded-full bg-slate-500 animate-pulse" />}
+                        {student.status === 'present' ? <Check size={28} /> :
+                          student.status === 'absent' ? <X size={28} /> :
+                            <div className="w-2 h-2 rounded-full bg-slate-500 animate-pulse" />}
                       </button>
                     </div>
                   ))}
@@ -346,13 +353,35 @@ export default function DriverPanel() {
             )}
           </div>
 
+          <div className="space-y-6">
+  <div className={`p-8 rounded-[2.5rem] border ${cardClass}`}>
+    <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+      <Radio size={16} className="text-amber-500" /> Dispatch Comms
+    </h3>
+    <div className="grid gap-3">
+      <button 
+        onClick={() => sendNotification('DELAY', 'Heavy Traffic in the area')}
+        className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-500 text-[10px] font-black uppercase hover:bg-amber-500 hover:text-slate-950 transition-all"
+      >
+        Report Traffic Delay
+      </button>
+      <button 
+        onClick={() => sendNotification('EMERGENCY', 'Vehicle Breakdown')}
+        className="w-full p-4 bg-red-600/10 border border-red-600/20 rounded-2xl text-red-600 text-[10px] font-black uppercase hover:bg-red-600 hover:text-white transition-all"
+      >
+        Report Breakdown
+      </button>
+    </div>
+  </div>
+</div>
+
           {/* SIDEBAR TOOLS */}
           <div className="space-y-6">
             <div className="bg-amber-400 p-8 rounded-[2.5rem] shadow-xl text-slate-900">
               <AlertCircle size={32} className="mb-4" />
               <h3 className="text-2xl font-black italic mb-2 tracking-tighter uppercase leading-none">Traffic Alert?</h3>
               <p className="font-bold opacity-80 mb-6 leading-tight text-sm text-slate-800">Inform parents immediately if you are stuck in traffic or have a breakdown.</p>
-              <button 
+              <button
                 onClick={() => sendNotification('DELAY', "The bus is experiencing a 15-minute traffic delay.")}
                 className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-transform"
               >
@@ -360,7 +389,7 @@ export default function DriverPanel() {
               </button>
             </div>
 
-            <button 
+            <button
               onClick={() => sendNotification('EMERGENCY', "EMERGENCY: The bus has stopped due to an issue. Please wait for further updates.")}
               className="w-full bg-red-600 p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col items-center gap-4 hover:bg-red-700 transition-colors"
             >
@@ -370,7 +399,7 @@ export default function DriverPanel() {
                 <p className="text-[9px] font-bold opacity-70 uppercase tracking-widest">Alerts Admin & Parents</p>
               </div>
             </button>
-            
+
             <div className={`p-6 rounded-[2rem] border ${cardClass} flex items-center gap-4`}>
               <div className="bg-amber-500/10 p-3 rounded-xl"><Clock className="text-amber-500" /></div>
               <div>

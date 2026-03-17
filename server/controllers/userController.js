@@ -33,8 +33,28 @@ exports.getProfile = async (req, res) => {
     }
 };
 
+exports.updateFCMToken = async (req, res) => {
+    try {
+        const { fcmToken } = req.body;
+        
+        // Find the user and update their fcmToken field
+        const user = await User.findByIdAndUpdate(
+            req.user.id, 
+            { fcmToken: fcmToken },
+            { new: true }
+        );
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        res.json({ success: true, message: "FCM Token updated successfully" });
+    } catch (err) {
+        console.error("FCM Update Error:", err);
+        res.status(500).json({ message: "Error updating notification token" });
+    }
+};
+
 exports.updateSettings = async (req, res) => {
-    const { name, mobileNo, address, password } = req.body;
+    const { name, mobileNo, address, lat, lng, password } = req.body;
     try {
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -42,6 +62,8 @@ exports.updateSettings = async (req, res) => {
         if (name) user.name = name;
         if (mobileNo) user.mobileNo = mobileNo;
         if (address) user.address = address;
+        if (lat !== undefined) user.lat = lat;
+        if (lng !== undefined) user.lng = lng;
         if (password) {
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(password, salt);

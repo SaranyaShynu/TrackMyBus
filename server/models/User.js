@@ -7,6 +7,8 @@ const UserSchema = new mongoose.Schema({
   googleId: { type: String },
   mobileNo: { type: String, required: false },
   address:{type:String},
+  lat: Number,
+  lng: Number,
   role: {
     type: String,
     enum: ['parent', 'driver', 'assistant', 'admin'],

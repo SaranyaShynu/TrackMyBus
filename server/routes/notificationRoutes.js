@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const notificationController = require('../controllers/notificationController');
 
+router.get('/history', authMiddleware.protect, notificationController.getNotificationHistory);
 router.post('/broadcast', authMiddleware.protect, notificationController.broadcastNotification);
 
 module.exports = router;

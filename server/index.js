@@ -74,6 +74,21 @@ io.on('connection', (socket) => {
         recipients: [/* Admin ID here */]
       });
 
+       const allBuses = await Bus.find({ status: 'active' });
+
+    const nearbyBuses = allBuses.filter(bus =>
+      bus._id.toString() !== data.busId.toString()
+    );
+
+    console.log("Nearby buses:", nearbyBuses.map(b => b.busNo));
+
+    io.to('admin-control-center').emit('nearby_buses', {
+      studentId: data.studentId,
+      studentName: data.studentName,
+      buses: nearbyBuses
+    });
+
+
       io.to('admin-control-center').emit('refresh_data');
       io.to('admin-control-center').emit('notification', newNotif);
     } catch (err) { console.error(err); }
@@ -88,8 +103,22 @@ io.on('connection', (socket) => {
         message: `Pickup Order: Collect ${data.studentName} at ${data.pickupLocation}.`,
         sender: data.adminId
       });
+         const roomTarget = data.busId.toString();
+      io.to(roomTarget).emit('driver_instruction', {
+      ...instruction._doc,
+      studentId: data.studentId,  
+      parentId: data.parentId,  
+      studentName: data.studentName,
+      pickupLocation: data.pickupLocation,
+      message: `Pickup ${data.studentName} at ${data.pickupLocation}`,
+      isTemporary: true
+    });
 
-      io.to(data.busId.toString()).emit('driver_instruction', instruction);
+      io.to('admin-control-center').emit('notification', {
+      type: 'INFO',
+      message: `Instruction sent to Bus ${data.busId} for ${data.studentName}`,
+      time: new Date().toLocaleTimeString()
+    });
     } catch (err) { console.error(err); }
   });
 

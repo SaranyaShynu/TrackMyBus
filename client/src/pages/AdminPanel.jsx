@@ -261,12 +261,12 @@ export default function AdminPanel() {
   const targetBus = buses.find(b => b._id === targetBusId);
   const data = {
     busId: targetBusId, 
-    adminId: driverData?._id || "Admin",
+    adminId: "Admin Control",
     studentName: studentName,
     pickupLocation: pickupLocation,
     isTemporary: true
   };
-
+console.log("📡 Emitting Reassignment:", data);
   socket.emit('admin_reassign_driver', data);
   socket.emit('temp_bus_assignment', {
     studentName: studentName,
@@ -705,15 +705,28 @@ export default function AdminPanel() {
                   <p className="text-[8px] font-black uppercase opacity-50 mb-1">Reassign Pickup:</p>
                   <div className="flex flex-col gap-1">
                     {/* Maps through all buses to find nearest */}
-                    {buses.map(bus => (
-                      <button 
-                        key={bus._id}
-                        onClick={() => handleReassignPickup(student.name, student.stopLocation.name, bus._id)}
-                        className="bg-blue-600 text-white text-[9px] font-black uppercase py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Send Bus {bus.busNo}
-                      </button>
-                    ))}
+                  {buses.filter(bus => bus._id !== (student.assignedBus?._id || student.assignedBus)).map(bus => (
+  <button 
+    key={bus?._id}
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      
+     const studentName = student?.name || "Unknown Student";
+  
+  const pickupLocation = student?.stopLocation?.name || "Address not provided";
+  
+  const targetBusId = bus?._id;
+
+  if (!targetBusId) return alert("Bus ID missing");
+
+  handleReassignPickup(studentName, pickupLocation, targetBusId);
+    }}
+    className="bg-blue-600 text-white text-[9px] font-black uppercase py-2 px-3 rounded-lg hover:bg-blue-700"
+  >
+    Send Bus {bus?.busNo ?? '??'}
+  </button>
+))}
                   </div>
                 </div>
               </Popup>
@@ -725,7 +738,7 @@ export default function AdminPanel() {
       {/* INFO OVERLAY (Floating on Map) */}
       <div className={`absolute bottom-10 left-10 p-6 rounded-[2rem] border-2 shadow-2xl w-80 z-[1000] backdrop-blur-md bg-opacity-90 ${card}`}>
         <p className="text-[10px] font-black text-slate-500 uppercase mb-2">Current Route</p>
-        <p className="font-bold mb-4">{selectedBus.route}</p>
+        <p className="font-bold mb-4">{selectedBus.route|| "No Route Selected"}</p>
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-slate-500/5 rounded-xl border border-slate-500/10">
             <p className="text-[8px] font-black opacity-50 uppercase">Simulated Speed</p>
@@ -769,10 +782,14 @@ export default function AdminPanel() {
           <div className="flex flex-col gap-2">
             <p className="text-[8px] font-black uppercase opacity-40 text-center">Dispatch Alternate Unit</p>
             <div className="flex gap-2">
-              {buses.slice(0, 3).map(bus => (
+              {buses.filter(bus => bus._id !== (student.assignedBus?._id || student.assignedBus)).slice(0, 3).map(bus => (
                 <button 
                   key={bus._id}
-                  onClick={() => handleReassignPickup(student.name, student.stopLocation.name, bus._id)}
+                 onClick={() => handleReassignPickup(
+  student?.name || "Unknown Student",
+  student?.stopLocation?.name || student?.pickupAddress || "Location not available",
+  bus?._id
+)}
                   className="px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all border border-slate-700"
                 >
                   Bus {bus.busNo}

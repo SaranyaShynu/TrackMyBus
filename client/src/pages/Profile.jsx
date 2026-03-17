@@ -157,8 +157,13 @@ export default function Profile() {
 
         setLoading(true);
         try {
-            await axios.put('http://localhost:5000/api/users/settings', formData, config);
-            alert("Profile updated successfully!");
+            // FIXED: Defined 'res' to handle the response check
+            const res = await axios.put('http://localhost:5000/api/users/settings', formData, config);
+            
+            if(res.status === 200 || res.data.success) {
+                alert("Profile updated successfully!");
+                window.location.href = "/dashboard"; 
+            }
         } catch (err) {
             alert(err.response?.data?.message || "Failed to update profile");
         } finally {
@@ -198,24 +203,40 @@ export default function Profile() {
                         {/* Name & Phone */}
                         <div className="grid md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-500 ml-2 tracking-widest">Full Name</label>
-                                <input name="name" value={formData.name || ""} onChange={handleChange} className={`w-full px-6 py-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} font-bold outline-none focus:ring-2 focus:ring-amber-500`} />
+                                <label htmlFor="name-field" className="text-[10px] font-black uppercase text-slate-500 ml-2 tracking-widest">Full Name</label>
+                                <input 
+                                    id="name-field"
+                                    name="name" 
+                                    autoComplete="name" 
+                                    value={formData.name || ""} 
+                                    onChange={handleChange} 
+                                    className={`w-full px-6 py-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} font-bold outline-none focus:ring-2 focus:ring-amber-500`} 
+                                />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-500 ml-2 tracking-widest">Mobile Number</label>
-                                <input name="mobileNo" value={formData.mobileNo || ""} onChange={handleChange} className={`w-full px-6 py-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} font-bold outline-none focus:ring-2 focus:ring-amber-500`} />
+                                <label htmlFor="phone-field" className="text-[10px] font-black uppercase text-slate-500 ml-2 tracking-widest">Mobile Number</label>
+                                <input 
+                                    id="phone-field"
+                                    name="mobileNo" 
+                                    autoComplete="tel" 
+                                    value={formData.mobileNo || ""} 
+                                    onChange={handleChange} 
+                                    className={`w-full px-6 py-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} font-bold outline-none focus:ring-2 focus:ring-amber-500`} 
+                                />
                             </div>
                         </div>
 
                         {/* Address & GPS Actions */}
                         <div className="space-y-4">
-                            <label className="text-[10px] font-black uppercase text-slate-500 ml-2 tracking-widest">Home Location</label>
+                            <label htmlFor="address-field" className="text-[10px] font-black uppercase text-slate-500 ml-2 tracking-widest">Home Location</label>
                             
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <input 
+                                    id="address-field"
                                     name="address" 
+                                    autoComplete='street-address'
                                     value={formData.address || ""} 
-                                    onChange={handleChange} 
+                                    onChange={handleChange}  
                                     placeholder="Enter address..."
                                     className={`flex-1 px-6 py-4 rounded-2xl border ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'} font-bold outline-none focus:ring-2 focus:ring-amber-500`} 
                                 />
