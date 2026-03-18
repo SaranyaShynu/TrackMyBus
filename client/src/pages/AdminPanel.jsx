@@ -55,6 +55,22 @@ const InputGroup = ({ label, icon: Icon, dark, ...props }) => (
   </div>
 );
 
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};
+
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('overview');
   const [adminDark, setAdminDark] = useState(() => JSON.parse(localStorage.getItem('admin-private-theme') || 'true'));
@@ -256,28 +272,30 @@ export default function AdminPanel() {
   const handleDeleteBus = async (id) => { if (window.confirm("Delete bus?")) { await axios.delete(`http://localhost:5000/api/admin/bus/${id}`, config); fetchData(); } };
   const handleDeleteStudent = async (pId, sId) => { if (window.confirm("Delete student?")) { await axios.delete(`http://localhost:5000/api/admin/parent/${pId}/student/${sId}`, config); fetchData(); } };
 
- const handleReassignPickup = (studentName, pickupLocation, targetBusId) => {
+ const handleReassignPickup = (student, targetBusId) => {
   if (!socket) return alert("System offline. Please refresh.");
   const targetBus = buses.find(b => b._id === targetBusId);
   const data = {
     busId: targetBusId, 
     adminId: "Admin Control",
-    studentName: studentName,
-    pickupLocation: pickupLocation,
+    studentId: student._id,
+    parentId: student.parentId,
+    studentName: student.name,
+    pickupLocation: student?.stopLocation?.name || "Location not available",
     isTemporary: true
   };
 console.log("📡 Emitting Reassignment:", data);
   socket.emit('admin_reassign_driver', data);
   socket.emit('temp_bus_assignment', {
-    studentName: studentName,
+    studentName: student.name,
     tempBusNo: targetBus?.busNo,
     tempBusId: targetBusId
   });
-  alert(`Temporary Pickup: Bus ${targetBus?.busNo} alerted for ${studentName}.`);
+  alert(`Temporary Pickup: Bus ${targetBus?.busNo} alerted for ${student.name}.`);
   
   setNotifications(prev => [{
     type: 'INFO',
-    message: `Temp Reassignment: Bus ${targetBusId} ➔ ${studentName}`,
+    message: `Temp Reassignment: Bus ${targetBus?.busNo} ➔ ${student.name}`,
     time: new Date().toLocaleTimeString()
   }, ...prev]);
 };
@@ -485,7 +503,6 @@ console.log("📡 Emitting Reassignment:", data);
                   const capacity = bus.capacity || 40;
                   const rate = (passengers.length / capacity) * 100;
 
-                  // Logic to get names or show "Unassigned"
                   const driverName = bus.driver?.name || "Unassigned";
                   const assistantName = bus.assistant?.name || "Unassigned";
 
@@ -705,28 +722,30 @@ console.log("📡 Emitting Reassignment:", data);
                   <p className="text-[8px] font-black uppercase opacity-50 mb-1">Reassign Pickup:</p>
                   <div className="flex flex-col gap-1">
                     {/* Maps through all buses to find nearest */}
-                  {buses.filter(bus => bus._id !== (student.assignedBus?._id || student.assignedBus)).map(bus => (
-  <button 
-    key={bus?._id}
-    type="button"
-    onClick={(e) => {
-      e.stopPropagation();
-      
-     const studentName = student?.name || "Unknown Student";
-  
-  const pickupLocation = student?.stopLocation?.name || "Address not provided";
-  
-  const targetBusId = bus?._id;
+                  {availableBuses.slice(0, 3).map(bus => {
+  const isBest = bus._id === bestBusId;
 
-  if (!targetBusId) return alert("Bus ID missing");
-
-  handleReassignPickup(studentName, pickupLocation, targetBusId);
-    }}
-    className="bg-blue-600 text-white text-[9px] font-black uppercase py-2 px-3 rounded-lg hover:bg-blue-700"
-  >
-    Send Bus {bus?.busNo ?? '??'}
-  </button>
-))}
+  return (
+    <button 
+      key={bus._id}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleReassignPickup(
+          student,
+          bus._id
+        );
+      }}
+      className={`text-[9px] font-black uppercase py-2 px-3 rounded-lg
+        ${isBest 
+          ? 'bg-green-500 text-white animate-pulse' 
+          : 'bg-blue-600 text-white hover:bg-blue-700'
+        }`}
+    >
+      {isBest ? "⭐ BEST " : ""}
+      Bus {bus.busNo}
+    </button>
+  );
+})}
                   </div>
                 </div>
               </Popup>
@@ -782,19 +801,46 @@ console.log("📡 Emitting Reassignment:", data);
           <div className="flex flex-col gap-2">
             <p className="text-[8px] font-black uppercase opacity-40 text-center">Dispatch Alternate Unit</p>
             <div className="flex gap-2">
-              {buses.filter(bus => bus._id !== (student.assignedBus?._id || student.assignedBus)).slice(0, 3).map(bus => (
-                <button 
-                  key={bus._id}
-                 onClick={() => handleReassignPickup(
-  student?.name || "Unknown Student",
-  student?.stopLocation?.name || student?.pickupAddress || "Location not available",
-  bus?._id
-)}
-                  className="px-4 py-2 bg-slate-900 text-white text-[9px] font-black uppercase rounded-lg hover:bg-amber-500 hover:text-slate-950 transition-all border border-slate-700"
-                >
-                  Bus {bus.busNo}
-                </button>
-              ))}
+              {(() => {
+  const studentLat = student?.stopLocation?.coordinates?.lat;
+  const studentLng = student?.stopLocation?.coordinates?.lng;
+
+  const availableBuses = buses
+    .filter(bus => bus._id !== (student.assignedBus?._id || student.assignedBus))
+    .map(bus => ({
+      ...bus,
+      distance: getDistance(
+        studentLat,
+        studentLng,
+        bus?.currentLocation?.lat,
+        bus?.currentLocation?.lng
+      )
+    }))
+    .sort((a, b) => a.distance - b.distance);
+
+  const bestBusId = availableBuses[0]?._id;
+
+  return availableBuses.slice(0, 3).map(bus => {
+    const isBest = bus._id === bestBusId;
+
+    return (
+      <button 
+        key={bus._id}
+        onClick={() => handleReassignPickup(
+          student, bus._id
+        )}
+        className={`px-4 py-2 text-[9px] font-black uppercase rounded-lg transition-all border
+          ${isBest 
+            ? 'bg-green-500 text-white border-green-400 animate-pulse shadow-lg' 
+            : 'bg-slate-900 text-white border-slate-700 hover:bg-amber-500 hover:text-slate-950'
+          }`}
+      >
+        {isBest ? "⭐ BEST " : ""}
+        Bus {bus.busNo}
+      </button>
+    );
+  });
+})()}
             </div>
           </div>
         </div>

@@ -22,35 +22,50 @@ export default function DriverPanel() {
   const token = localStorage.getItem('token');
 
   // Initialize Socket Connection
-  useEffect(() => {
-    socketRef.current = io('http://localhost:5000');
-
-    socketRef.current.on('driver_instruction', (instruction) => {
-      alert(`🚨 NEW PICKUP ORDER:\n${instruction.message}`);
-
-      const tempStudent = {
-        _id: instruction.studentId || `temp-${Date.now()}`,
-        name: instruction.studentName,
-        displayRoute: `EMERGENCY PICKUP: ${instruction.pickupLocation}`,
-        status: 'pending',
-        isTemporary: true, // This flag helps us identify it later
-        stopLocation: { name: instruction.pickupLocation|| "Emergency Point" },
-        parentId: instruction.parentId || null
-      };
-
-      setStudents(prev => [tempStudent, ...prev]);
-    });
+useEffect(() => {
+  socketRef.current = io('http://localhost:5000');
+   socketRef.current.on("connect", () => {
+    console.log("🟢 Socket connected");
 
     if (driverData?.assignedBus?._id) {
-      socketRef.current.emit('joinBusRoom', driverData.assignedBus._id);
-      console.log(`Driver joined room: ${driverData.assignedBus._id}`);
+      socketRef.current.emit(
+        "joinBusRoom",
+        driverData.assignedBus._id.toString()
+      );
+      console.log("✅ Joined room on connect");
     }
+  });
 
-    return () => {
-      if (socketRef.current) socketRef.current.disconnect();
-      if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+  // Listen for the emergency reassignment
+  socketRef.current.on('admin_reassign_driver', (instruction) => {
+    console.log("📥 Received instruction:", instruction);
+    
+    const tempStudent = {
+      _id: instruction.studentId || `temp-${Date.now()}`,
+      name: instruction.studentName,
+      displayRoute: `EMERGENCY PICKUP: ${instruction.pickupLocation}`,
+      status: 'pending',
+      isTemporary: true,
+      stopLocation: { name: instruction.pickupLocation || "Emergency Point" },
+      parentId: instruction.parentId || null
     };
-  }, [driverData]);
+
+    setStudents(prev => [tempStudent, ...prev]);
+    alert(`🚨 New Emergency Task: Pick up ${instruction.studentName}`);
+  });
+
+  return () => {
+    if (socketRef.current) socketRef.current.disconnect();
+  };
+}, [driverData]); 
+
+useEffect(() => {
+  if (socketRef.current && driverData?.assignedBus?._id) {
+    const busRoom = driverData.assignedBus._id.toString();
+    socketRef.current.emit('joinBusRoom', busRoom);
+    console.log("✅ Driver joined room:", busRoom);
+  }
+}, [driverData]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -176,6 +191,19 @@ export default function DriverPanel() {
       return { ...s, status: nextStatus };
     }));
   };
+
+  const acceptTask = (studentId, studentName) => {
+  socketRef.current.emit('driver_accept_emergency', {
+    busId: driverData.assignedBus._id,
+    busNo: driverData.assignedBus.busNo,
+    studentId: studentId,
+    studentName: studentName
+  });
+  
+  setStudents(prev => prev.map(s => 
+    s._id === studentId ? { ...s, isAccepted: true } : s
+  ));
+};
 
   const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -329,6 +357,14 @@ export default function DriverPanel() {
                           <Navigation size={12} /> Open in GPS
                         </button>
                       )}
+                      {student.isTemporary && !student.isAccepted && (
+  <button 
+    onClick={() => acceptTask(student._id, student.name)}
+    className="bg-green-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase mt-2 hover:bg-green-700"
+  >
+    Confirm Pickup Task
+  </button>
+)}
 
                       <button
                         onClick={() => toggleStatus(student._id)}
@@ -377,7 +413,7 @@ export default function DriverPanel() {
 
           {/* SIDEBAR TOOLS */}
           <div className="space-y-6">
-            <div className="bg-amber-400 p-8 rounded-[2.5rem] shadow-xl text-slate-900">
+              <div className={`p-8 rounded-[2.5rem] border ${cardClass}`}>
               <AlertCircle size={32} className="mb-4" />
               <h3 className="text-2xl font-black italic mb-2 tracking-tighter uppercase leading-none">Traffic Alert?</h3>
               <p className="font-bold opacity-80 mb-6 leading-tight text-sm text-slate-800">Inform parents immediately if you are stuck in traffic or have a breakdown.</p>

@@ -49,7 +49,7 @@ io.on('connection', (socket) => {
   console.log('📡 New Connection:', socket.id);
 
   socket.on('joinBusRoom', (busId) => {
-    socket.join(busId);
+    socket.join(busId.toString());
     console.log(`User joined bus room: ${busId}`);
   });
 
@@ -71,13 +71,14 @@ io.on('connection', (socket) => {
         type: 'EMERGENCY',
         message: `ALERT: ${data.studentName} missed their bus!`,
         sender: data.parentId,
-        recipients: [/* Admin ID here */]
+        recipients: ['admin-control-center']
       });
 
        const allBuses = await Bus.find({ status: 'active' });
 
     const nearbyBuses = allBuses.filter(bus =>
-      bus._id.toString() !== data.busId.toString()
+      bus._id.toString() !== data.busId.toString() &&
+      bus.status === 'active'
     );
 
     console.log("Nearby buses:", nearbyBuses.map(b => b.busNo));
@@ -97,14 +98,15 @@ io.on('connection', (socket) => {
   // B. Admin -> Driver (Logging the Instruction)
   socket.on('admin_reassign_driver', async (data) => {
     try {
+    
       const instruction = await Notification.create({
         busId: data.busId,
         type: 'EMERGENCY',
         message: `Pickup Order: Collect ${data.studentName} at ${data.pickupLocation}.`,
-        sender: data.adminId
+        sender: null
       });
          const roomTarget = data.busId.toString();
-      io.to(roomTarget).emit('driver_instruction', {
+      io.to(roomTarget).emit('admin_reassign_driver', {
       ...instruction._doc,
       studentId: data.studentId,  
       parentId: data.parentId,  
@@ -114,13 +116,40 @@ io.on('connection', (socket) => {
       isTemporary: true
     });
 
-      io.to('admin-control-center').emit('notification', {
+     io.to('admin-control-center').emit('notification', {
       type: 'INFO',
       message: `Instruction sent to Bus ${data.busId} for ${data.studentName}`,
       time: new Date().toLocaleTimeString()
-    });
+    });  
     } catch (err) { console.error(err); }
   });
+
+socket.on('driver_accept_emergency', async (data) => {
+  try {
+    // 1. Update the Student record in DB to point to THIS bus
+    await Student.findByIdAndUpdate(data.studentId, { 
+      assignedBus: data.busId,
+      status: 'assigned' 
+    });
+
+    // 2. Tell Admin the driver is on the way
+    io.to('admin-control-center').emit('notification', {
+      type: 'SUCCESS',
+      message: `Driver confirmed pickup for ${data.studentName}`,
+      time: new Date().toLocaleTimeString()
+    });
+
+    io.to(data.studentId.toString()).emit('temp_assignment_broadcast', {
+      busId: data.busId,
+      busNo: data.busNo,
+      studentName: data.studentName,
+      message: `A new bus (${data.busNo}) is coming to pick up your child!`
+    });
+
+  } catch (err) {
+    console.error("Accept Task Error:", err);
+  }
+});
 
   // C. Driver -> Parent (Logging the Success)
   socket.on('driver_pickup_confirmed', async (data) => {
@@ -145,14 +174,14 @@ io.on('connection', (socket) => {
 
   socket.on('updateLocation', async (data) => {
     const { busId, lat, lng, speed, busNo } = data;
-    io.to(busId).to('admin-control-center').emit('fleetUpdate', data);
+    io.to(busId.toString()).to('admin-control-center').emit('fleetUpdate', data);
 
     // 1. Traffic Logic
     if (!busStatus[busId]) busStatus[busId] = { idleCount: 0 };
     if (speed < 5) { 
       busStatus[busId].idleCount++;
       if (busStatus[busId].idleCount === 6) {
-        io.to(busId).to('admin-control-center').emit('notification', {
+        io.to(busId.toString()).to('admin-control-center').emit('notification', {
           type: 'TRAFFIC',
           busNo,
           message: `Bus ${busNo} is stuck in traffic.`,
