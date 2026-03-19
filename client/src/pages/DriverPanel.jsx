@@ -192,16 +192,17 @@ useEffect(() => {
     }));
   };
 
-  const acceptTask = (studentId, studentName) => {
+  const acceptTask = (student, studentName) => {
   socketRef.current.emit('driver_accept_emergency', {
     busId: driverData.assignedBus._id,
     busNo: driverData.assignedBus.busNo,
-    studentId: studentId,
-    studentName: studentName
+    studentId: student._id,
+    studentName: student.name,
+    parentId: student.parentId
   });
   
   setStudents(prev => prev.map(s => 
-    s._id === studentId ? { ...s, isAccepted: true } : s
+    s._id === student._id ? { ...s, isAccepted: true } : s
   ));
 };
 
@@ -359,7 +360,7 @@ useEffect(() => {
                       )}
                       {student.isTemporary && !student.isAccepted && (
   <button 
-    onClick={() => acceptTask(student._id, student.name)}
+    onClick={() => acceptTask(student)}
     className="bg-green-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase mt-2 hover:bg-green-700"
   >
     Confirm Pickup Task

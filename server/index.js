@@ -133,15 +133,18 @@ socket.on('driver_accept_emergency', async (data) => {
     });
 
     // 2. Tell Admin the driver is on the way
-    io.to('admin-control-center').emit('notification', {
-      type: 'SUCCESS',
-      message: `Driver confirmed pickup for ${data.studentName}`,
-      time: new Date().toLocaleTimeString()
-    });
+   io.to('admin-control-center').emit('driver_accepted_emergency', {
+  studentId: data.studentId,
+  studentName: data.studentName,
+  busId: data.busId,
+  busNo: data.busNo,
+  time: new Date().toLocaleTimeString()
+});
 
     io.to(data.studentId.toString()).emit('temp_assignment_broadcast', {
       busId: data.busId,
       busNo: data.busNo,
+       studentId: data.studentId,
       studentName: data.studentName,
       message: `A new bus (${data.busNo}) is coming to pick up your child!`
     });
@@ -163,10 +166,11 @@ socket.on('driver_accept_emergency', async (data) => {
       });
 
       io.to(data.studentId).emit('notification', successNotif);
-      io.to('admin-control-center').emit('pickup_verified', {
+      io.to('admin-control-center').emit('notification', {
+      type:'PICKUP CONFIRMED',
       studentId: data.studentId,
       coords: data.pickupCoords,
-      busNo: data.busNo
+      time: new Date().toLocaleTimeString()
     });
       io.to('admin-control-center').emit('refresh_data');
     } catch (err) { console.error(err); }

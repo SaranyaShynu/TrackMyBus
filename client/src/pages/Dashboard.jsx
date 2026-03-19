@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -47,6 +47,7 @@ export default function Dashboard() {
     const [distance, setDistance] = useState(null);
     const [history, setHistory] = useState([]);
     const { isDarkMode } = useTheme();
+    const currentBusRef = useRef(null);
 
     const calculateDistance = useCallback((lat1, lon1, lat2, lon2) => {
         if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -104,32 +105,36 @@ export default function Dashboard() {
         };
         fetchDashboardData();
     }, []);
+
+    useEffect(() => {
+    currentBusRef.current = activeStudent?.assignedBus?._id;
+}, [activeStudent]);
 // socket io
 useEffect(() => {
     if (!activeStudent?._id) return;
 
     const socket = io('http://localhost:5000');
     const studentId = activeStudent._id;
-    let currentBusId = activeStudent.assignedBus?._id;
+    //let currentBusId = activeStudent.assignedBus?._id;
 
     socket.emit('joinStudentRoom', studentId);
-    if (currentBusId) {
-        socket.emit('joinBusRoom', currentBusId);
+    if (currentBusRef.current) {
+        socket.emit('joinBusRoom',  currentBusRef.current);
     }
 
     socket.on('temp_assignment_broadcast', (data) => {
-        if (data.studentName === activeStudent.name) {
-            toast.error(`Emergency: ${activeStudent.name} is being picked up by Bus ${data.busNo || 'a different bus'}`, {
+        if (data.studentId === activeStudent._id) {
+            toast.success(`Emergency: ${activeStudent.name} is being picked up by Bus ${data.busNo || 'a different bus'}`, {
                 duration: 10000,
                 icon: '🚨'
             });
+            currentBusRef.current = data.busId;
             socket.emit('joinBusRoom', data.busId);
-            currentBusId = data.busId; 
         }
     });
 
     socket.on('fleetUpdate', (data) => {
-        if (currentBusId === data.busId || currentBusId === data._id) {
+        if (currentBusRef.current === data.busId || currentBusRef.current === data._id) {
             setLiveCoords([data.lat, data.lng]);
         }
     });
@@ -180,7 +185,7 @@ useEffect(() => {
         socket.off('notification');
         socket.disconnect();
     };
-}, [activeStudent?.name, activeStudent?._id, activeStudent?.assignedBus?._id, isDarkMode]);
+}, [activeStudent?._id, isDarkMode]);
 
     // Live Distance Calculation
    useEffect(() => {

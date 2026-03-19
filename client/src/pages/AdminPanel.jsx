@@ -138,10 +138,44 @@ export default function AdminPanel() {
       fetchData();
     });
 
+    socket.on('driver_accepted_emergency', (data) => {
+    console.log("✅ Driver Accepted:", data);
+
+    alert(`Driver accepted pickup for ${data.studentName}`);
+
+    // 🔥 UPDATE UI STATE
+    setMissedStudents(prev =>
+        prev.map(s =>
+            s.studentId === data.studentId
+                ? { ...s, status: 'driver_confirmed', assignedBus: data.busNo }
+                : s
+        )
+    );
+});
+
+    socket.on('driver_response', (data) => {
+  if (data.type === 'ACCEPTED') {
+    console.log("✅ Driver confirmed:", data);
+
+    alert(`Driver accepted for ${data.studentName}`);
+
+    // Optional UI update
+    setNotifications(prev => [
+      {
+        type: 'SUCCESS',
+        message: `Bus ${data.busNo} confirmed for ${data.studentName}`,
+        time: new Date().toLocaleTimeString()
+      },
+      ...prev
+    ]);
+  }
+});
+
     return () => {
       socket.off('fleetUpdate');
       socket.off('notification');
       socket.off('refresh_data');
+      socket.off('driver_response');
     };
   }, [socket]);
 
