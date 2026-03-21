@@ -186,7 +186,7 @@ export default function AdminPanel() {
         if (prev.length > 0) return prev; 
         return buses.map(b => ({
           ...b,
-          currentLocation: b.currentLocation || { lat: 11.7491, lng: 75.4890 },
+          currentLocation: b.currentLocation || { lat: 11.8667, lng: 75.3553 },
           lastUpdate: 'Awaiting Signal...'
         }));
       });
@@ -720,7 +720,7 @@ console.log("📡 Emitting Reassignment:", data);
     {/* MAP AREA */}
     <div className="flex-1 relative">
       <MapContainer 
-        center={[selectedBus.currentLocation?.lat || 11.7491, selectedBus.currentLocation?.lng || 75.4890]} 
+        center={[selectedBus.currentLocation?.lat || 11.8667, selectedBus.currentLocation?.lng || 75.3553]}
         zoom={14} 
         className="h-full w-full"
         zoomControl={false}
@@ -739,10 +739,7 @@ console.log("📡 Emitting Reassignment:", data);
           student.status === 'missed' && (
             <Marker 
               key={student._id}
-              position={[
-                            student.stopLocation?.coordinates?.lat || 0, 
-                            student.stopLocation?.coordinates?.lng || 0
-                        ]}
+              position={[ student.stopLocation?.coordinates?.lat, student.stopLocation?.coordinates?.lng ]}
               icon={L.divIcon({ 
                 className: 'custom-div-icon',
                 html: `<div class="w-6 h-6 bg-red-600 rounded-full border-4 border-white animate-bounce shadow-lg"></div>` 
@@ -1089,7 +1086,7 @@ console.log("📡 Emitting Reassignment:", data);
           {/* Map Container */}
           <div className="flex-1 relative">
             <MapContainer
-              center={[selectedBus.currentLocation?.lat || 11.7491, selectedBus.currentLocation?.lng || 75.4890]}
+              center={[selectedBus.currentLocation?.lat || 11.8667, selectedBus.currentLocation?.lng || 75.3553]}
               zoom={16}
               className="h-full w-full"
               zoomControl={false}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Bus, User, Users, Clock, ChevronRight, LayoutDashboard, MapPin, AlertTriangle, Navigation, AlertCircle } from 'lucide-react';
@@ -46,6 +46,8 @@ export default function Dashboard() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [distance, setDistance] = useState(null);
     const [history, setHistory] = useState([]);
+    const [path, setPath] = useState([]);
+    const [hasReached, setHasReached] = useState(false);
     const { isDarkMode } = useTheme();
     const currentBusRef = useRef(null);
 
@@ -135,7 +137,9 @@ useEffect(() => {
 
     socket.on('fleetUpdate', (data) => {
         if (currentBusRef.current === data.busId || currentBusRef.current === data._id) {
-            setLiveCoords([data.lat, data.lng]);
+            const newPoint = [data.lat, data.lng];
+            setLiveCoords(newPoint);
+             setPath(prev => [...prev, newPoint]);
         }
     });
 
@@ -196,6 +200,11 @@ useEffect(() => {
     if (targetLat && liveCoords) {
         const d = calculateDistance(liveCoords[0], liveCoords[1], targetLat, targetLng);
         setDistance(d);
+         if (d && parseFloat(d) < 0.5 && !hasReached) {
+            setHasReached(true);
+
+            toast.success("Bus reached destination 🎯");
+        }
     }
 }, [liveCoords, activeStudent, userData, calculateDistance, history]);
 
@@ -309,6 +318,14 @@ useEffect(() => {
         </Marker>
     )
 ))}
+ {path.length > 1 && (
+        <Polyline 
+            positions={path} 
+            color="blue" 
+            weight={5}
+        />
+    )}
+
                                         
                                         <RecenterMap coords={liveCoords} />
                                     </MapContainer>
