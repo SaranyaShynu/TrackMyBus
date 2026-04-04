@@ -47,9 +47,18 @@ export default function Dashboard() {
     const [distance, setDistance] = useState(null);
     const [history, setHistory] = useState([]);
     const [path, setPath] = useState([]);
-    const [hasReached, setHasReached] = useState(false);
     const { isDarkMode } = useTheme();
     const currentBusRef = useRef(null);
+    const notifiedRef = useRef(false);
+    const [routePath, setRoutePath] = useState([]);
+    const liveCoordsRef = useRef(liveCoords);
+    const reachedRef = useRef(false);
+
+    const bus = activeStudent?.assignedBus;
+
+useEffect(() => {
+    liveCoordsRef.current = liveCoords;
+}, [liveCoords]);
 
     const calculateDistance = useCallback((lat1, lon1, lat2, lon2) => {
         if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -61,6 +70,62 @@ export default function Dashboard() {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return (R * c).toFixed(2);
     }, []);
+
+    const getDistanceMeters = (a, b) => {
+    const R = 6371000;
+    const dLat = (b[0] - a[0]) * Math.PI / 180;
+    const dLng = (b[1] - a[1]) * Math.PI / 180;
+
+    const x = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(a[0]*Math.PI/180) * Math.cos(b[0]*Math.PI/180) *
+        Math.sin(dLng/2) * Math.sin(dLng/2);
+
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+};
+const animateTo = (start, end) => {
+    let startTime = null;
+    const duration = 1000;
+
+    function animate(time) {
+        if (!startTime) startTime = time;
+        const progress = Math.min((time - startTime) / duration, 1);
+
+        const lat = start[0] + (end[0] - start[0]) * progress;
+        const lng = start[1] + (end[1] - start[1]) * progress;
+
+        const newCoords = [lat, lng];
+
+        liveCoordsRef.current = newCoords;
+        setLiveCoords(newCoords);    
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+
+    requestAnimationFrame(animate);
+};
+
+    const trips = {
+        morning: ["07:30", "08:00", "08:30"],
+        evening: ["15:30", "16:00", "16:30"]
+    };
+
+    const isBusActive = () => {
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5);
+
+    const allTrips = [...trips.morning, ...trips.evening];
+
+    return allTrips.some(time => {
+        const [h, m] = time.split(":");
+        const tripTime = new Date();
+        tripTime.setHours(h, m, 0);
+
+        const diff = Math.abs(now - tripTime) / 1000 / 60;
+        return diff < 30;
+    });
+};
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -108,6 +173,13 @@ export default function Dashboard() {
         fetchDashboardData();
     }, []);
 
+useEffect(() => {
+    if (!bus?.routePoints || bus.routePoints.length === 0) return;
+
+    const formatted = bus.routePoints.map(p => [p.lat, p.lng]);
+    setRoutePath(formatted);
+}, [bus]);
+
     useEffect(() => {
     currentBusRef.current = activeStudent?.assignedBus?._id;
 }, [activeStudent]);
@@ -136,12 +208,34 @@ useEffect(() => {
     });
 
     socket.on('fleetUpdate', (data) => {
-        if (currentBusRef.current === data.busId || currentBusRef.current === data._id) {
-            const newPoint = [data.lat, data.lng];
-            setLiveCoords(newPoint);
-             setPath(prev => [...prev, newPoint]);
-        }
-    });
+    // ✅ basic validation
+    if (!data.lat || !data.lng) return;
+
+    // ✅ check correct bus
+    if (currentBusRef.current !== data.busId && currentBusRef.current !== data._id) return;
+
+   // if (!isBusActive()) return;
+
+    const newPoint = [data.lat, data.lng];
+
+ const prevCoords = liveCoordsRef.current;
+
+if (!prevCoords) {
+    setLiveCoords(newPoint);
+    return;
+}
+
+const dist = getDistanceMeters(prevCoords, newPoint);
+
+if (dist < 1) return;
+if (dist > 500) return;
+
+// ✅ animate properly
+animateTo(prevCoords, newPoint);
+
+    // ✅ update path (only valid points)
+    setPath(prev => [...prev, newPoint].slice(-50));
+});
 
     socket.on('notification', (data) => {
         
@@ -200,15 +294,21 @@ useEffect(() => {
     if (targetLat && liveCoords) {
         const d = calculateDistance(liveCoords[0], liveCoords[1], targetLat, targetLng);
         setDistance(d);
-         if (d && parseFloat(d) < 0.5 && !hasReached) {
-            setHasReached(true);
+        const dist = parseFloat(d);
+         if (dist < 0.4 && !reachedRef.current && isBusActive()) {
+            reachedRef.current=true;
 
             toast.success("Bus reached destination 🎯");
+        }
+        if (dist > 1.5 && reachedRef.current) {
+            reachedRef.current=false;
         }
     }
 }, [liveCoords, activeStudent, userData, calculateDistance, history]);
 
-    const bus = activeStudent?.assignedBus;
+useEffect(() => {
+    setPath([]);
+}, [activeStudent?._id]);
 
     return (
         <div className={`flex flex-col min-h-screen ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -318,14 +418,13 @@ useEffect(() => {
         </Marker>
     )
 ))}
- {path.length > 1 && (
-        <Polyline 
-            positions={path} 
-            color="blue" 
-            weight={5}
-        />
-    )}
-
+{routePath.length > 0 && (
+    <Polyline 
+        positions={routePath} 
+        color="green" 
+        weight={4}
+    />
+)}
                                         
                                         <RecenterMap coords={liveCoords} />
                                     </MapContainer>

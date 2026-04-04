@@ -16,6 +16,12 @@ const BusSchema = new mongoose.Schema({
         type: String, 
         required: true 
     },
+    routePoints: [
+        {
+            lat: { type: Number, required: true },
+            lng: { type: Number, required: true }
+        }
+    ],
     driver: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User' 

@@ -120,7 +120,7 @@ io.on('connection', (socket) => {
       type: 'INFO',
       message: `Instruction sent to Bus ${data.busId} for ${data.studentName}`,
       time: new Date().toLocaleTimeString()
-    });  
+    });
     } catch (err) { console.error(err); }
   });
 
@@ -144,7 +144,7 @@ socket.on('driver_accept_emergency', async (data) => {
     io.to(data.studentId.toString()).emit('temp_assignment_broadcast', {
       busId: data.busId,
       busNo: data.busNo,
-       studentId: data.studentId,
+      studentId: data.studentId,
       studentName: data.studentName,
       message: `A new bus (${data.busNo}) is coming to pick up your child!`
     });
@@ -272,8 +272,17 @@ setInterval(async () => {
 
     for (const bus of activeBuses) {
       // Find the path matching the bus's route string
-      const path = ROUTES_MAP[bus.route] || ROUTES_MAP["Dharmadam"]; // Fallback to Dharmadam
-      const coords = path[simStep % path.length];
+      const path = bus.routePoints;
+      if (!path || path.length < 2) continue;
+      simStep += 0.2;
+
+      const index = Math.floor(simStep) % path.length;
+      const coords =  res.data.routes[0].geometry.coordinates;
+
+const routePoints = coords.map(c => ({
+  lat: c[1],
+  lng: c[0]
+}));
 
       // 2. Update Bus Location in Memory/Socket
       const movementData = {
@@ -287,7 +296,7 @@ setInterval(async () => {
       };
 
       // 3. Emit to Admin and joined Parents
-      io.emit('fleetUpdate', movementData);
+     // io.emit('fleetUpdate', movementData);
       io.to(bus._id.toString()).to('admin-control-center').emit('fleetUpdate', movementData);
 
       // 4. Smart School Arrival Notification
