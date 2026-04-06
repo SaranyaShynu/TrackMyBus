@@ -174,7 +174,7 @@ const animateTo = (start, end) => {
     }, []);
 
 useEffect(() => {
-    if (!bus?.routePoints || bus.routePoints.length === 0) return;
+    if (!bus || !bus.routePoints || bus.routePoints.length < 2) return;
 
     const formatted = bus.routePoints.map(p => [p.lat, p.lng]);
     setRoutePath(formatted);

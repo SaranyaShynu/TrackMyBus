@@ -118,18 +118,26 @@ useEffect(() => {
     sendNotification('START', "The bus has started the journey!");
 
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
+    async  (position) => {
         const { latitude, longitude } = position.coords;
         setCurrentCoords({ lat: latitude, lng: longitude });
-
+            const busId = driverData.assignedBus._id;
         // Emit to Socket - The Backend will handle "Nearby" calculations per student
         socketRef.current.emit('updateLocation', {
-          busId: driverData.assignedBus._id,
+          busId,
           lat: latitude,
           lng: longitude,
           status: 'moving'
         });
-      },
+          try {
+      await axios.put(`http://localhost:5000/api/bus/location/${busId}`, {
+        lat: latitude,
+        lng: longitude
+      });
+    } catch (err) {
+      console.error("DB location update failed:", err);
+    }
+  },
       (error) => console.error("GPS Error:", error),
       {
         enableHighAccuracy: true,
@@ -137,7 +145,7 @@ useEffect(() => {
         timeout: 5000
       }
     );
-  };
+  }
 
   const stopJourney = () => {
     if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);

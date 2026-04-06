@@ -51,3 +51,32 @@ exports.getBusStudents = async (req, res) => {
         res.status(500).json({ message: "Failed to fetch student list" });
     }
 };
+
+exports.updateBusLocation = async (req, res) => {
+    try {
+        const { busId } = req.params;
+        const { lat, lng } = req.body;
+
+        if (lat == null || lng == null) {
+            return res.status(400).json({ message: "Invalid coordinates" });
+        }
+
+        const updatedBus = await Bus.findByIdAndUpdate(
+            busId,
+            {
+                currentLocation: { lat, lng }
+            },
+            { new: true }
+        );
+
+        if (!updatedBus) {
+            return res.status(404).json({ message: "Bus not found" });
+        }
+
+        res.status(200).json({ success: true, data: updatedBus });
+
+    } catch (err) {
+        console.error("Location Update Error:", err);
+        res.status(500).json({ message: "Location update failed" });
+    }
+};
